@@ -8,9 +8,9 @@ vars:
   BASE_URL: '{{.TASK_BASE_URL | default .COMPOSE_SERVER_DOMAIN | default .COMPOSE_DOMAIN }}'
   DOCKER_COMPOSE: '{{ .TASK_DOCKER_COMPOSE | default "itkdev-docker-compose" }}'
   OPEN_WEBUI_REPO: 'https://github.com/itk-dev/open-webui.git'
-  OPEN_WEBUI_PREV_VERSION: 'v0.6.34'
-  OPEN_WEBUI_VERSION: 'v0.6.36'
-  PROD_OPEN_WEBUI_VERSION: 'v0.6.36-1'
+  OPEN_WEBUI_PREV_VERSION: 'v0.6.36'
+  OPEN_WEBUI_VERSION: 'v0.6.38'
+  PROD_OPEN_WEBUI_VERSION: 'v0.6.38-1'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
@@ -22,30 +22,28 @@ vars:
     - name: 'Extra permissions'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/40.diff'
       branch: 'feature/extra-permissions'
-    - name: 'Allow only admin users to generate API-KEY for the backend'
-      url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/41.diff'
-      branch: 'feature/admin-api-keys'
     - name: 'Fixed null error in auth database session handling'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/43.diff'
       branch: 'feature/oauth_token_expire'
     - name: 'Fix search model drop-down'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/45.diff'
       branch: 'feature/model-search'
+    - name: 'Ensured that role names from OIDC is kept'
+      url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/34.diff'
+      branch: 'feature/keep-role-names'
   PATCHES_AARHUS:
+    - name: 'Allow only admin users to generate API-KEY for the backend'
+      url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/41.diff'
+      branch: 'feature/admin-api-keys'
     - name: 'Frontend changes - login banner and sidebar logo'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/42.diff'
       branch: 'feature/front-end-ii'
     - name: 'OIDC aak roles and groups'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/33.diff'
       branch: 'feature/oidc-group-claims'
-    - name: 'Ensured that role names from OIDC is kept'
-      url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/34.diff'
-      branch: 'feature/keep-role-names'
     - name: 'Expose file metadata URL in citation modal'
       url: 'https://patch-diff.githubusercontent.com/raw/itk-dev/open-webui/pull/44.diff'
       branch: 'feature/citation-modal-url'
-  ALL_PATCHES:
-    sh: echo '{{ .PATCHES | toJson }}{{ .PATCHES_AARHUS | toJson }}' | jq -s 'add'
 
 tasks:
   default:
@@ -199,7 +197,17 @@ tasks:
           echo "Install cancelled."
           exit 1
         fi
-      - for: { var: ALL_PATCHES }
+      - for: { var: PATCHES }
+        cmd: |
+          if [ -n "{{ .ITEM.branch }}" ]; then
+            echo "Processing patch: {{ .ITEM.name }}"
+            git checkout {{ .ITEM.branch }}
+            git pull
+            git rebase --onto upstream/{{ .OPEN_WEBUI_VERSION }} upstream/{{ .OPEN_WEBUI_PREV_VERSION }}
+          else
+            echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
+          fi
+      - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
             echo "Processing patch: {{ .ITEM.name }}"
@@ -224,7 +232,17 @@ tasks:
           echo "Install cancelled."
           exit 1
         fi
-      - for: { var: ALL_PATCHES }
+      - for: { var: PATCHES }
+        cmd: |
+          if [ -n "{{ .ITEM.branch }}" ]; then
+            echo "Resetting patch: {{ .ITEM.name }}"
+            git checkout {{ .ITEM.branch }}
+            git reset --hard origin/{{ .ITEM.branch }}
+            git pull
+          else
+            echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
+          fi
+      - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
             echo "Resetting patch: {{ .ITEM.name }}"
@@ -249,7 +267,14 @@ tasks:
           echo "Push cancelled."
           exit 1
         fi
-      - for: { var: ALL_PATCHES }
+      - for: { var: PATCHES }
+        cmd: |
+          if [ -n "{{ .ITEM.branch }}" ]; then
+            git push origin {{ .ITEM.branch }} --force
+          else
+            echo "No branch specified for this '{{ .ITEM.name }}', skipping push"
+          fi
+      - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
             git push origin {{ .ITEM.branch }} --force

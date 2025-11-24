@@ -74,7 +74,7 @@ services:
       # User profile notification webhooks
       ENABLE_USER_WEBHOOKS: ${ENABLE_USER_WEBHOOKS:-false}
       # Disable api key generation (in user profile)
-      ENABLE_API_KEY: ${ENABLE_API_KEY:-false}
+      ENABLE_API_KEYS: ${ENABLE_API_KEYS:-false}
       # Sharing
       ENABLE_COMMUNITY_SHARING: ${ENABLE_COMMUNITY_SHARING:-false}
       # Disable image capture
