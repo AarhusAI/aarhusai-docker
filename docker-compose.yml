@@ -68,13 +68,19 @@ services:
       OAUTH_ADMIN_ROLES: ${OAUTH_ADMIN_ROLES:-admin}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
-      # RAG
-      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      # External document loader
       CONTENT_EXTRACTION_ENGINE: ${CONTENT_EXTRACTION_ENGINE:-external}
       EXTERNAL_DOCUMENT_LOADER_URL: ${EXTERNAL_DOCUMENT_LOADER_URL:-http://doc-ingestion:8000/api/v1}
-      EXTERNAL_DOCUMENT_LOADER_API_KEY: ${ODC_INGESTION_TOKEN:-123456789}
+      EXTERNAL_DOCUMENT_LOADER_API_KEY: ${DOC_INGESTION_TOKEN:-123456789}
+      # RAG embedding
+      RAG_EMBEDDING_ENGINE: "openai"
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      RAG_OPENAI_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
       RAG_EMBEDDING_BATCH_SIZE: ${RAG_EMBEDDING_BATCH_SIZE:-64}
-      CHUNK_SIZE: 500
+      CHUNK_SIZE: ${CHUNK_SIZE:-500]
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
+      RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-character}
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
@@ -290,7 +296,7 @@ services:
       start_period: 40s
     environment:
       APP_NAME: Document Ingestion Router
-      API_KEY: ${ODC_INGESTION_TOKEN:-123456789}
+      API_KEY: ${DOC_INGESTION_TOKEN:-123456789}
       TIKA_BASE_URL: http://tika:9998
       TIKA_USER: ''
       TIKA_PASSWORD: ''
