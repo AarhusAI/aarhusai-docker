@@ -403,7 +403,7 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   searxng:
-    image: searxng/searxng:latest
+    image: searxng/searxng:${SEARXNG_TAH:-2025.11.24-5fcee9bc3}
     networks:
       - app
     ports:
