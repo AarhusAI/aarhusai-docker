@@ -69,6 +69,7 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-500}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-character}
+      ENABLE_ASYNC_EMBEDDING: ${ENABLE_ASYNC_EMBEDDING:-true}
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
