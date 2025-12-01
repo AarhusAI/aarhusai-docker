@@ -341,7 +341,7 @@ engines:
   - name: aarhus
     engine: aarhus
     shortcut: aak
-    disabled: false
+    disabled: true
     categories: general
     timeout: 5.0
     weight: 2.5
