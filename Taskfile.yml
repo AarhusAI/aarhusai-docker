@@ -8,9 +8,9 @@ vars:
   BASE_URL: '{{.TASK_BASE_URL | default .COMPOSE_SERVER_DOMAIN | default .COMPOSE_DOMAIN }}'
   DOCKER_COMPOSE: '{{ .TASK_DOCKER_COMPOSE | default "itkdev-docker-compose" }}'
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
-  OPEN_WEBUI_PREV_VERSION: 'v0.6.38'
-  OPEN_WEBUI_VERSION: 'v0.6.40'
-  PROD_OPEN_WEBUI_VERSION: 'v0.6.40-1'
+  OPEN_WEBUI_PREV_VERSION: 'v0.6.40'
+  OPEN_WEBUI_VERSION: 'v0.6.41'
+  PROD_OPEN_WEBUI_VERSION: 'v0.6.41-1'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
