@@ -112,50 +112,78 @@ services:
       TAGS_GENERATION_PROMPT_TEMPLATE: "### Opgave:\nGenerér 1-3 brede tags, der kategoriserer hovedtemaerne i chat-historikken, samt 1-3 mere specifikke undertags.\n\n### Retningslinjer:\n- Start med overordnede domæner (fx Sundhed, Kultur, Borgerservice, Teknik, Miljø, Omsorg, Sport, Fritid, Administration, Uddannelse).\n- Overvej at inkludere relevante underområder, hvis de er tydeligt repræsenteret i samtalen.\n- Hvis indholdet er for kort (under 3 beskeder) eller for varieret, brug kun [\"Generelt\"].\n- Skriv tags på samtalens primære sprog; brug dansk som standard, hvis sproget er blandet.\n- Prioritér præcision frem for overdreven specificitet.\n\n### Output:\nJSON-format: { \"tags\": [\"tag1\", \"tag2\", \"tag3\"] }\n\n### Chat-historik:\n<chat_history>\n{{MESSAGES:END:6}}\n</chat_history>"
       FOLLOW_UP_GENERATION_PROMPT_TEMPLATE: "### Opgave:\nForeslå 3-5 relevante opfølgende spørgsmål eller prompts på samtalens primære sprog, som brugeren naturligt kunne stille i denne samtale som **bruger**, baseret på chat-historikken, for at hjælpe med at fortsætte eller uddybe diskussionen.\n\n### Retningslinjer:\n- Skriv alle opfølgende spørgsmål fra brugerens synspunkt, rettet mod assistenten.\n- Gør spørgsmålene korte, klare og direkte relateret til de emner, der er drøftet.\n- Foreslå kun opfølgninger, der giver mening i forhold til indholdet, og undgå gentagelser.\n- Hvis samtalen er meget kort eller ukonkret, foreslå mere generelle (men relevante) opfølgende spørgsmål.\n- Brug samtalens primære sprog; brug dansk som standard, hvis sproget er blandet.\n- Svaret skal være et JSON-array af strenge, uden ekstra tekst eller formattering.\n\n### Output:\nJSON-format: { \"follow_ups\": [\"Spørgsmål 1?\", \"Spørgsmål 2?\", \"Spørgsmål 3?\"] }\n\n### Chat-historik:\n<chat_history>\n{{MESSAGES:END:6}}\n</chat_history>"
       QUERY_GENERATION_PROMPT_TEMPLATE: |
-        ### Opgave:
-        Du genererer søgeforespørgsler på dansk til SearXNG. Analyser chat og returner 1-3 optimerede queries.
-        
-        ### JSON Format (KUN dette):
-        {
-          "queries": ["query1", "query2", "query3"]
-        }
-        
-        ### Søgeregler:
+        # Opgave
+
+        Du er en assistent til optimering af søgeforespørgsler. Din opgave er at analysere samtalehistorikken og generere 1-3 optimerede søgeforespørgsler til SearXNG, der hjælper med at finde de mest relevante webresultater.
+
+        ## Instruktioner
+
         1. Brug naturligt dansk sprog (ikke oversat engelsk)
-        2. Inkluder ALTID årstal for aktuelle data ({{CURRENT_DATE}})
-        3. Lav bred + specifik variant af samme søgning
-        4. Undgå stopord ("i", "den", "det") - brug kernebegreber
-        5. Tilføj kontekst: "officiel", "liste", "oversigt" for faktuelle queries
-        6. Max 4-7 ord per query
-        7. Generer 2-3 queries ved faktaspørgsmål (forskellige vinkler)
-        8. Tom liste [] kun ved small talk eller ren mening
-        
-        ### Eksempler på GODE queries:
-        "Hvem sidder i byrådet?" → ["Aarhus byråd medlemmer 2025 liste", "byråd Aarhus officiel oversigt", "byrådspolitikere Aarhus Kommune"]
-        "Hvad er vejret?" → ["vejret København nu", "DMI vejrudsigt Danmark"]
-        "Python sortering?" → ["Python sort list dokumentation", "sortering Python eksempel"]
-        
-        ### Eksempler på DÅRLIGE queries (undgå):
-        ❌ "Aarhus byråd" (for bred)
-        ❌ "medlemmer Aarhus byråd" (unatural ordstilling)
-        ❌ "hvordan virker byråd" (forkert fokus)  
-        
-        ### Hvornår søge:
-        ✓ Fakta, tal, navne, aktuelle data
-        ✓ "Hvem, hvad, hvor, hvornår" spørgsmål
-        ✓ Specifik teknisk/lokal info
-        ✓ Efter {{CURRENT_DATE|minus 1 year}}
-        
-        ### Hvornår IKKE søge:
-        ✗ Generel viden før 2023
-        ✗ Meninger, følelser, råd
-        ✗ Matematik, kode-eksempler
-        ✗ Forklaring af koncepter
-        
+        2. **Analyser samtalen** med vægt på nyere beskeder (nyere beskeder er vigtigere end ældre)
+        3. **Identificer det centrale informationsbehov** - hvilke videnshuller skal udfyldes?
+        4. **Generer 1-3 søgeforespørgsler** som er:
+            - Koncise (typisk 3-6 ord)
+            - Specifikke og målrettede
+            - Fri for samtale-fyld
+            - Fokuseret på fakta der kan findes, ikke meninger
+            - Optimeret til søgemaskiner (ingen spørgsmålstegn, minimale stopord)
+        5. Baser svar på Aarhus såfremt andet ikke er præciseret
+        6. Prioriter resultater fra officielle kilder
+        7. Tilføj årstal hvis der spørges om aktuel information
+
         Dato: {{CURRENT_DATE}}
-        
+
+        ## Retningslinjer for Optimering af Forespørgsler
+
+        ### GØR:
+        - Brug specifikke navneord, egennavne, tekniske termer
+        - Inkluder relevant år/dato kontekst når aktualitet er vigtig
+        - Kombiner 2-3 nøglebegreber per forespørgsel
+        - Brug branche terminologi
+        - Lav forskellige forespørgsler der dækker forskellige vinkler af emnet
+
+        ### GØR IKKE:
+        - Brug ikke spørgsmål ("hvad er...", "hvordan...")
+        - Inkluder ikke samtalefraser ("jeg vil gerne vide om...")
+        - Brug ikke særlige operatorer medmindre specifikt nødvendigt (citationstegn, site:, osv.)
+        - Gentag ikke lignende forespørgsler
+        - Generer ikke forespørgsler for information der allerede er klart etableret i samtalen
+
+        ## Output Format
+
+        Returner søgeforespørgslerne på følgende format:
+
+        {
+        "queries": ["query1", "query2"]
+        }
+
+        ## Eksempler
+
+        **Samtale kontekst:** Bruger spørger om elbiler i Danmark, har tidligere snakket om bilpriser generelt. Seneste besked: "Hvilke elbiler kan man få til under 300.000 kr?"
+
+        Output:
+        {
+        "queries": ["elbiler under 300000 kr Danmark 2025", "billigste elbiler Danmark", "elbil rækkevidde pris sammenligning"]
+        }
+
+        **Samtale kontekst:** Diskussion om klimaforandringer, tidligere nævnt global opvarmning. Seneste beskeder handler om konkrete løsninger i Danmark.
+
+        Output:
+        {
+        "queries": ["Danmarks klimamål 2030", "grøn omstilling Danmark initiativer", "vedvarende energi Danmark statistik 2025"]
+        }
+
+        **Samtale kontekst:** Lang samtale om madlavning, tidligere diskuteret italiensk mad. Ny retning: "Hvad er den bedste måde at tilberede entrecôte?"
+
+        Output:
+        {
+        "queries": ["entrecôte tilberedning opskrift", "entrecôte stegetid perfekt"]
+        }
+
+        Generer nu optimerede søgeforespørgsler baseret på den efterfølgende samtalehistorik.
+
         <chat_history>
-        {{MESSAGES:END:6}}
+        {{MESSAGES:END:4}}
         </chat_history>
       # LOGO
       LOGO_URL: ${LOGO_URL:-https://designguide.aarhus.dk/media/i1kjp3l1/png-lang-venstrejusteret-negativ-png-8-kb.png?format=noformat}
