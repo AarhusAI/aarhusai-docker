@@ -82,7 +82,7 @@ tasks:
     desc: "Clone open-webui core"
     cmds:
       - git clone {{ .OPEN_WEBUI_REPO }}
-      - git checkout {{ .OPEN_WEBUI_VERSION }}
+      - cd "{{ .TARGET_DIR }}" && git checkout {{ .OPEN_WEBUI_VERSION }}
     silent: true
 
   git:checkout:dev:
@@ -176,7 +176,7 @@ tasks:
     silent: true
 
   wui:frontend:dev:build:
-    desc: "Build frontend with enviroment set to dev"
+    desc: "Build frontend with environment set to dev"
     cmds:
       - task compose -- run --rm -it -e ENV=dev node npm ci --force
       - task compose -- run --rm -it -e ENV=dev node npm run build
