@@ -326,7 +326,7 @@ services:
       - app
 
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: ghcr.io/berriai/litellm:${LITELLM_IMAGE:-v1.80.0-stable.1}
     command: [
       "--config", "/app/config.yaml",
       "--detailed_debug",
