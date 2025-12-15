@@ -133,17 +133,17 @@ services:
         ## Instruktioner
 
         1. Brug naturligt dansk sprog (ikke oversat engelsk)
-        2. **Analyser samtalen** med vægt på nyere beskeder (nyere beskeder er vigtigere end ældre)
-        3. **Identificer det centrale informationsbehov** - hvilke videnshuller skal udfyldes?
-        4. **Generer 1-3 søgeforespørgsler** som er:
+        2. **Identificer det centrale informationsbehov** - hvilke videnshuller skal udfyldes?
+        3. **Generer 1-3 søgeforespørgsler** som er:
             - Koncise (typisk 3-6 ord)
             - Specifikke og målrettede
             - Fri for samtale-fyld
             - Fokuseret på fakta der kan findes, ikke meninger
             - Optimeret til søgemaskiner (ingen spørgsmålstegn, minimale stopord)
-        5. Baser svar på Aarhus såfremt andet ikke er præciseret
-        6. Prioriter resultater fra officielle kilder
-        7. Tilføj årstal hvis der spørges om aktuel information
+            - Forsøg at fremprovokere søgeresultater fra officielle kilder (kommuner, regioner, statistikker)
+        4. Baser svar på Aarhus såfremt andet ikke er præciseret
+        5. Prioriter resultater fra officielle kilder
+        6. Tilføj årstal hvis der spørges om aktuel information
 
         Dato: {{CURRENT_DATE}}
 
@@ -193,11 +193,19 @@ services:
         {
         "queries": ["entrecôte tilberedning opskrift", "entrecôte stegetid perfekt"]
         }
-
+        
+        ## Samtalehistorik
+        
         Generer nu optimerede søgeforespørgsler baseret på den efterfølgende samtalehistorik.
+        
+        Brugerens beskeder fremkommer som: USER
+        Assistentens svar fremkommer som: ASSISTANT
+        
+        Fokuser på brugerens beskeder når du genererer søgeforespørgsler, men præciser disse søgeforespørgsler ud fra hele samtalehistorikken.
+        Fremgår der flere USER input i den kronologiske samtalehistorik og omhandler disse vidt forskellige emner så læg fokus på den sidstnævnte.
 
         <chat_history>
-        {{MESSAGES:END:4}}
+        {{MESSAGES:END:3}}
         </chat_history>
       # LOGO
       LOGO_URL: ${LOGO_URL:-https://designguide.aarhus.dk/media/i1kjp3l1/png-lang-venstrejusteret-negativ-png-8-kb.png?format=noformat}
