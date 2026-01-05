@@ -34,6 +34,8 @@ services:
       ENABLE_SIGNUP: ${ENABLE_SIGNUP:-false}
       ENABLE_LOGIN_FORM: ${ENABLE_LOGIN_FORM:-false}
       ENABLE_OAUTH_SIGNUP: true
+      AAK_OAUTH_ENABLE_ROLE_GROUPS_MAPPING: ${AAK_OAUTH_ENABLE_ROLE_GROUPS_MAPPING:-true}
+      AAK_OAUTH_DEBUG_FORCE_ROLE: ${AAK_OAUTH_DEBUG_FORCE_ROLE:-}
       # Important: Only use for AAK SSO/OIDC as we need to be able to trust the email provided!
       # Docs: "This is considered insecure as not all OAuth providers verify email addresses, and may allow accounts to be hijacked."
       # @see https://docs.openwebui.com/features/sso/#oauth
