@@ -21,6 +21,7 @@ services:
       ENABLE_PERSISTENT_CONFIG: ${ENABLE_PERSISTENT_CONFIG:-true}
       ENABLE_PUBLIC_ACTIVE_USERS_COUNT: ${ENABLE_PUBLIC_ACTIVE_USERS_COUNT:-false}
       ENABLE_USER_STATUS: ${ENABLE_USER_STATUS:-false}
+      DEFAULT_GROUP_SHARE_PERMISSION: ${DEFAULT_GROUP_SHARE_PERMISSION:-members}
       # Admin user setup
       WEBUI_ADMIN_NAME: "admin"
       WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL}
@@ -42,8 +43,6 @@ services:
       ENABLE_OAUTH_SIGNUP: true
       AAK_OAUTH_ENABLE_ROLE_GROUPS_MAPPING: ${AAK_OAUTH_ENABLE_ROLE_GROUPS_MAPPING:-true}
       AAK_OAUTH_DEBUG_FORCE_ROLE: ${AAK_OAUTH_DEBUG_FORCE_ROLE:-}
-      AAK_OAUTH_ENABLE_FORCE_GROUP_SHARE_SETTING: ${AAK_OAUTH_ENABLE_FORCE_GROUP_SHARE_SETTING:-false}
-      AAK_OAUTH_GROUP_SHARE_SETTING_VALUE: ${AAK_OAUTH_GROUP_SHARE_SETTING_VALUE:-members}
       # Important: Only use for AAK SSO/OIDC as we need to be able to trust the email provided!
       # Docs: "This is considered insecure as not all OAuth providers verify email addresses, and may allow accounts to be hijacked."
       # @see https://docs.openwebui.com/features/sso/#oauth
