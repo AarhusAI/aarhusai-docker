@@ -452,7 +452,7 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   searxng:
-    image: ghcr.io/searxng/searxng:${SEARXNG_TAG:2026.3.13-3c1f68c59}
+    image: ghcr.io/searxng/searxng:${SEARXNG_TAG:-2026.3.13-3c1f68c59}
     networks:
       - app
     ports:
