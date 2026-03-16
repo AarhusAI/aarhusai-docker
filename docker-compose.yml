@@ -452,7 +452,7 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   searxng:
-    image: searxng/searxng:${SEARXNG_TAH:-2025.11.24-5fcee9bc3}
+    image: ghcr.io/searxng/searxng:${SEARXNG_TAG:2026.3.13-3c1f68c59}
     networks:
       - app
     ports:
@@ -461,7 +461,7 @@ services:
       SEARXNG_SECRET: ${SEARXNG_SECRET:-MySuperSecret}
       SEARXNG_METHOD: ${SEARXNG_METHOD:-POST}
     volumes:
-      - ./.docker/searxng/settings.yml:/etc/searxng/settings.yml
+      #- ./.docker/searxng/settings.yml:/etc/searxng/settings.yml
       - ./.docker/data/searxng/data/:/var/cache/searxng/
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
 

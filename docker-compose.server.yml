@@ -408,7 +408,7 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   searxng:
-    image: searxng/searxng:${SEARXNG_TAH:-2025.11.24-5fcee9bc3}
+    image: ghcr.io/searxng/searxng:${SEARXNG_TAG:2026.3.13-3c1f68c59}
     restart: unless-stopped
     networks:
       - app
