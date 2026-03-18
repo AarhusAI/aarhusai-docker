@@ -15,6 +15,7 @@ services:
       context: open-webui
       platforms:
         - "linux/amd64"
+        - "linux/arm64"
       args:
         USE_CUDA: false
         USE_OLLAMA: false
@@ -322,6 +323,7 @@ services:
 
   tika:
     image: itkdev/tika:3.2.3
+    platform: linux/amd64
     networks:
       - app
     ports:
@@ -335,6 +337,7 @@ services:
 
   doc-ingestion:
     image: itkdev/doc-ingestion-route:latest
+    platform: linux/amd64
     networks:
       - app
     ports:
