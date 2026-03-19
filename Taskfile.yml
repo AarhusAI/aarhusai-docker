@@ -11,6 +11,7 @@ vars:
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
   PROD_OPEN_WEBUI_VERSION: 'v0.8.12-2'
+  RETRIEVAL_SERVICE_REPO: 'https://github.com/AarhusAI/retrieval-service.git'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
@@ -35,10 +36,12 @@ vars:
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/33.diff'
       branch: 'feature/oidc-group-claims'
     # RAG patches
+    - name: 'External RAG service'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/48.diff'
+      branch: 'feature/external-retrival'
     - name: 'Template for rag queries'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/49.diff'
       branch: 'feature/rag-query-template'
-
   PATCHES_AARHUS:
     - name: 'Allow only admin users to generate API-KEY for the backend'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/41.diff'
@@ -91,6 +94,12 @@ tasks:
     cmds:
       - git clone {{ .OPEN_WEBUI_REPO }}
       - cd "{{ .TARGET_DIR }}" && git checkout {{ .OPEN_WEBUI_VERSION }}
+    silent: true
+
+  git:clone:retrieval:
+    desc: "Clone retrieval-service"
+    cmds:
+      - git clone {{ .RETRIEVAL_SERVICE_REPO }} retrieval-service
     silent: true
 
   git:checkout:dev:

@@ -1,0 +1,58 @@
+services:
+  retrieval:
+    build:
+      dockerfile: Dockerfile
+      context: ./retrieval-service
+      args:
+        ENV: ${ENV:-dev}
+      platforms:
+        - "linux/amd64"
+#        - "linux/arm64"
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    networks:
+      - app
+      - frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000"
+    depends_on:
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${RETRIEVAL_API_KEY:-change-me}
+      QDRANT_URI: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-open-webui}
+      QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
+      EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
+      ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-false}
+      HYBRID_BM25_WEIGHT: ${HYBRID_BM25_WEIGHT:-0.3}
+      ENABLE_RERANKING: ${ENABLE_RERANKING:-false}
+      RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+      RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
+      RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      INITIAL_RETRIEVAL_MULTIPLIER: ${INITIAL_RETRIEVAL_MULTIPLIER:-3}
+    volumes:
+      - ./retrieval-service:/app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval.rule=Host(`retrieval.${COMPOSE_DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+  openwebui:
+    environment:
+      ENABLE_RAG_EXTERNAL_RETRIEVAL: "true"
+      RAG_EXTERNAL_RETRIEVAL_API_URL: "http://retrieval:8000/search"
+      RAG_EXTERNAL_RETRIEVAL_API_KEY: ${RETRIEVAL_API_KEY:-change-me}
