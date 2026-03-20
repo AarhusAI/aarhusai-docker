@@ -199,6 +199,25 @@ tasks:
       - task compose -- run --rm -it -e ENV=dev node npm run build
     silent: true
 
+  wui:check:
+    desc: "Run the same format & build checks as GitHub Actions CI"
+    cmds:
+      - task wui:check:format:backend
+      - task wui:check:format:frontend
+
+  wui:check:format:backend:
+    desc: "Format backend (black) and check for changes"
+    cmds:
+      - task compose -- exec openwebui pip install black
+      - task compose -- exec openwebui black . --exclude ".venv/|/venv/"
+
+  wui:check:format:frontend:
+    desc: "Format frontend, run i18n parse, and check for changes"
+    cmds:
+      - task compose -- run node npm ci --force
+      - task compose -- run node npm run format
+      - task compose -- run node npm run i18n:parse
+
   ####
   ## Update webui version helpers (<-- danger zone -->)
   ####
