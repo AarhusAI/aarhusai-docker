@@ -2,4 +2,7 @@ open-webui/
 .env.docker.local
 .env
 litellm_config.yaml
+
 retrieval-service/
+agentic-retrieval/
+
