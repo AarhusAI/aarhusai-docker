@@ -10,7 +10,7 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.8'
   OPEN_WEBUI_VERSION: 'v0.8.10'
-  PROD_OPEN_WEBUI_VERSION: 'v0.8.10-2'
+  PROD_OPEN_WEBUI_VERSION: 'v0.8.10-3'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
@@ -37,6 +37,10 @@ vars:
     # Upstream PR: https://github.com/open-webui/open-webui/pull/22727
     - name: 'update ddgs from 9.11.2 to 9.11.4 - uvicorn'
       url: 'https://patch-diff.githubusercontent.com/raw/open-webui/open-webui/pull/22727.diff'
+    # RAG patches
+    - name: 'Template for rag queries'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/49.diff'
+      branch: 'feature/rag-query-template'
 
   PATCHES_AARHUS:
     - name: 'Allow only admin users to generate API-KEY for the backend'

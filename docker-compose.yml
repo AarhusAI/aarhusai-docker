@@ -221,6 +221,52 @@ services:
         <chat_history>
         {{MESSAGES:END:3}}
         </chat_history>
+      RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: |
+        ### Opgave:
+        Analysér samtalehistorikken og generér 1-3 søgeforespørgsler optimeret til semantisk søgning i en vidensbase.
+
+        ### Instruktioner:
+        - Svar **UDELUKKENDE** med et JSON-objekt.
+        - Basér forespørgsler **udelukkende på brugerens spørgsmål og informationsbehov**. Brug assistentens svar kun til kontekst og disambiguation (f.eks. til at forstå hvad "det", "den anden" refererer til).
+        - Generér forespørgsler som naturlige sætninger der fanger den semantiske betydning af brugerens informationsbehov.
+        - Omformuler samtale-referencer ("det", "den anden", "hvad med") til selvstændige, fuldstændige forespørgsler.
+        - Hver forespørgsel skal dække en forskellig vinkel for at maksimere dækningen af relevante dokumenter.
+        - Hvis brugerens besked tydeligt ikke kræver dokumentsøgning (f.eks. hilsner), returner: { "queries": [] }
+        - Svar på samtalens primære sprog; brug dansk som standard.
+        - Dato: {{CURRENT_DATE}}
+
+        ### Output:
+        { "queries": ["query1", "query2"] }
+
+        ### Samtalehistorik:
+        <chat_history>
+        {{MESSAGES:END:4}}
+        </chat_history>
+      RAG_TEMPLATE: |
+        ### Opgave:
+        Besvar brugerens spørgsmål ved hjælp af den medfølgende kontekst, og inkorporer kildehenvisninger i formatet [id] **kun når `<source>`-tagget indeholder en eksplicit id-attribut** (f.eks. `<source id="1">`).
+
+        ### Retningslinjer:
+        - Hvis du ikke kender svaret, skal du tydeligt angive dette.
+        - Hvis du er usikker, skal du bede brugeren om afklaring.
+        - Svar på samme sprog som brugerens spørgsmål.
+        - Hvis konteksten er ulæselig eller af dårlig kvalitet, skal du informere brugeren og give det bedst mulige svar.
+        - Hvis svaret ikke findes i konteksten, men du besidder viden om emnet, skal du forklare dette og besvare spørgsmålet ud fra din egen forståelse.
+        - **Inkluder kun kildehenvisninger i formatet [id] (f.eks. [1], [2]) når `<source>`-tagget indeholder en id-attribut.**
+        - Undlad at citere, hvis `<source>`-tagget ikke indeholder en id-attribut.
+        - Brug ikke XML-tags i dit svar.
+        - Sørg for, at kildehenvisninger er kortfattede og direkte relaterede til den givne information.
+
+        ### Eksempel på kildehenvisning:
+        Hvis brugeren spørger om et bestemt emne, og informationen findes i en kilde med en angivet id-attribut, skal svaret indeholde kildehenvisningen som i følgende eksempel:
+        * "Ifølge undersøgelsen øger den foreslåede metode effektiviteten med 20 % [1]."
+
+        ### Output:
+        Giv et klart og direkte svar på brugerens spørgsmål, og inkluder kildehenvisninger i formatet [id] kun når et `<source>`-tag med id-attribut er til stede i konteksten.
+
+        <context>
+        {{CONTEXT}}
+        </context>
       # LOGO
       LOGO_URL: ${LOGO_URL:-https://designguide.aarhus.dk/media/i1kjp3l1/png-lang-venstrejusteret-negativ-png-8-kb.png?format=noformat}
       # LOGIN INFO BANNER
