@@ -11,6 +11,4 @@ RUN DEBIAN_FRONTEND=noninteractive \
 	git \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN npm install -g npm
-
 USER ${USER_ID}:${GROUP_ID}
