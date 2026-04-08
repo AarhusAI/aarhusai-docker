@@ -78,7 +78,7 @@ services:
       RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
       RAG_EMBEDDING_BATCH_SIZE: ${RAG_EMBEDDING_BATCH_SIZE:-64}
       RAG_SYSTEM_CONTEXT: ${RAG_SYSTEM_CONTEXT:-false}
-      CHUNK_SIZE: ${CHUNK_SIZE:-500}
+      CHUNK_SIZE: ${CHUNK_SIZE:-440}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-token}
       ENABLE_ASYNC_EMBEDDING: ${ENABLE_ASYNC_EMBEDDING:-true}
@@ -95,7 +95,7 @@ services:
       # User profile notification webhooks
       ENABLE_USER_WEBHOOKS: ${ENABLE_USER_WEBHOOKS:-false}
       # Disable api key generation (in user profile)
-      ENABLE_API_KEYS: ${ENABLE_API_KEYS:-false}
+      ENABLE_API_KEYS: ${ENABLE_API_KEYS:-true}
       # Sharing
       ENABLE_COMMUNITY_SHARING: ${ENABLE_COMMUNITY_SHARING:-false}
       # Disable image capture
