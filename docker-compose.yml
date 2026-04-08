@@ -515,3 +515,18 @@ services:
       - ./.docker/data/searxng/data/:/var/cache/searxng/
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
 
+  mcp-retsinformation:
+    build:
+      context: tools/mcp-retsinformation
+    networks:
+      - app
+    ports:
+      - "8000"
+    environment:
+      RETSINFORMATION_BASE_URL: ${RETSINFORMATION_BASE_URL:-https://retsinformation-api.dk}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost',8000)); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

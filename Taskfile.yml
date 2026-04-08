@@ -12,6 +12,12 @@ vars:
   OPEN_WEBUI_VERSION: 'v0.8.10'
   PROD_OPEN_WEBUI_VERSION: 'v0.8.10-4'
   TARGET_DIR: 'open-webui'
+
+  # MCP Retsinformation
+  MCP_RETSINFORMATION_REPO: 'https://github.com/itk-dev/mcp-retsinformation.git'
+  MCP_RETSINFORMATION_BRANCH: 'feature/first-release'
+  MCP_RETSINFORMATION_DIR: 'tools/mcp-retsinformation'
+
   PATCHES:
     - name: 'Pinned info banner'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/32.diff'
@@ -344,3 +350,19 @@ tasks:
         vars:
           IMAGE_NAME: ghcr.io/os2ai/open-webui
           PATCH_TASK: patch:base
+
+  ####
+  ## MCP tools
+  ####
+  mcp:retsinformation:install:
+    desc: "Clone mcp-retsinformation into tools folder"
+    cmds:
+      - git clone --branch {{ .MCP_RETSINFORMATION_BRANCH }} --single-branch {{ .MCP_RETSINFORMATION_REPO }} {{ .MCP_RETSINFORMATION_DIR }}
+    silent: true
+
+  mcp:retsinformation:update:
+    desc: "Update mcp-retsinformation to latest on {{ .MCP_RETSINFORMATION_BRANCH }}"
+    dir: "{{ .MCP_RETSINFORMATION_DIR }}"
+    cmds:
+      - git pull
+    silent: true
