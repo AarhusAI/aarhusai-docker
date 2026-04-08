@@ -445,7 +445,7 @@ services:
       - app
 
   qdrant:
-    image: qdrant/qdrant:v1.15-unprivileged
+    image: qdrant/qdrant:v1.17-unprivileged
     ulimits:
       nofile:
         soft: 65536

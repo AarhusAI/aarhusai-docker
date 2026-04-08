@@ -490,7 +490,7 @@ services:
       - "6379"
 
   qdrant:
-    image: qdrant/qdrant:v1.15-unprivileged
+    image: qdrant/qdrant:v1.17-unprivileged
     networks:
       - app
     ports:
