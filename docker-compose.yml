@@ -292,6 +292,8 @@ services:
       ENABLE_CODE_INTERPRETER: ${ENABLE_CODE_INTERPRETER:-"False"}
       # Disable follow-up generation
       ENABLE_FOLLOW_UP_GENERATION: false
+      # Tool server connections
+      TOOL_SERVER_CONNECTIONS: '[{"type":"mcp","url":"http://search-agent:8001/mcp","spec_type":"url","spec":"","path":"openapi.json","auth_type":"none","key":"","info":{"id":"websearch","name":"websearch","description":"Search the internet"}}]'
     networks:
       - app
       - frontend
