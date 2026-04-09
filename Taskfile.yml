@@ -49,6 +49,9 @@ vars:
     - name: 'Expose file metadata URL in citation modal'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/44.diff'
       branch: 'feature/citation-modal-url'
+    - name: 'Route MCP tool results through the existing citation pipeline'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/50.diff'
+      branch: 'feature/agentic-search'
 
 tasks:
   default:
