@@ -10,7 +10,7 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
-  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-1'
+  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-2'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
