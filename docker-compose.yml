@@ -501,6 +501,36 @@ services:
     volumes:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
+  search-agent:
+    image: ghcr.io/aarhusai/search-agent:latest
+    command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - '8001'
+    networks:
+      - app
+    depends_on:
+      - searxng
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      SEARCH_AGENT_LLM_BASE_URL: ${OPENAI_API_BASE_URL:-http://litellm:4000/v1}
+      SEARCH_AGENT_LLM_API_KEY: ${OPENAI_API_KEY:-sk-1234}
+      SEARCH_AGENT_LLM_MODEL: ${SEARCH_AGENT_LLM_MODEL:-AarhusAI-default}
+      SEARCH_AGENT_SEARXNG_URL: ${SEARCH_AGENT_SEARXNG_URL:-http://searxng:8080}
+      SEARCH_AGENT_DATETIME_TIMEZONE: ${SEARCH_AGENT_DATETIME_TIMEZONE:-Europe/Copenhagen}
+      SEARCH_AGENT_DATETIME_FORMAT: ${SEARCH_AGENT_DATETIME_FORMAT:-%A, %B %-d, %Y, %H:%M %Z}
+      SEARCH_AGENT_MCP_ALLOWED_HOSTS: ${SEARCH_AGENT_MCP_ALLOWED_HOSTS:-["search-agent:8001","localhost:8001"]}
+      SEARCH_AGENT_SEARXNG_TIMEOUT: ${SEARCH_AGENT_SEARXNG_TIMEOUT:-15}
+      SEARCH_AGENT_SEARCH_PIPELINE_TIMEOUT: ${SEARCH_AGENT_SEARCH_PIPELINE_TIMEOUT:-90}
+      SEARCH_AGENT_LLM_TIMEOUT: ${SEARCH_AGENT_LLM_TIMEOUT:-60}
+      SEARCH_AGENT_SEARCH_QUERY_PLANNER_PROMPT: ${SEARCH_AGENT_SEARCH_QUERY_PLANNER_PROMPT:-}
+      SEARCH_AGENT_SEARCH_ANALYZE_SYNTHESIZE_PROMPT: ${SEARCH_AGENT_SEARCH_ANALYZE_SYNTHESIZE_PROMPT:-}
+      SEARCH_AGENT_SEARCH_SKIP_PLANNER_FOR_SIMPLE_QUERIES: ${SEARCH_AGENT_SEARCH_SKIP_PLANNER_FOR_SIMPLE_QUERIES:-true}
+
   searxng:
     image: ghcr.io/searxng/searxng:${SEARXNG_TAG:-2026.3.13-3c1f68c59}
     networks:
