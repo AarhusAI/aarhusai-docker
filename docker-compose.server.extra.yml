@@ -1,0 +1,29 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:${LITELLM_IMAGE:-v1.80.0-stable.1}
+    command: [
+      "--config", "/app/config.yaml",
+      "--detailed_debug",
+      "--num_workers", "8"
+    ]
+    restart: unless-stopped
+    networks:
+      - app
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-1234}
+    healthcheck:
+      test: [ "CMD", "wget", "-O", "/dev/null", "-q", "http://127.0.0.1:4000/health/liveliness" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml

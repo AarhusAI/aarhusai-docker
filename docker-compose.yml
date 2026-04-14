@@ -1,6 +1,3 @@
-include:
-  - docker-compose.oidc.yml
-
 networks:
   frontend:
     external: true
@@ -96,6 +93,13 @@ services:
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-token}
       ENABLE_ASYNC_EMBEDDING: ${ENABLE_ASYNC_EMBEDDING:-true}
       ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: ${ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER:-true}
+      # RAG retrieval (EXTERNAL)
+      RAG_RETRIEVAL_ENGINE: "external"
+      RAG_EXTERNAL_RETRIEVAL_URL: "http://retrieval:8000/"
+      RAG_EXTERNAL_RETRIEVAL_API_KEY: ${RAG_EXTERNAL_RETRIEVAL_API_KEY:?}
+      RAG_EXTERNAL_BYPASS_QUERY_GENERATION: "${RAG_EXTERNAL_BYPASS_QUERY_GENERATION:-true}"
+      RAG_EXTERNAL_MESSAGE_COUNT: "${RAG_EXTERNAL_MESSAGE_COUNT:-2}"
+      RAG_EXTERNAL_USER_MESSAGES_ONLY: "${RAG_EXTERNAL_USER_MESSAGES_ONLY:-true}"
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
@@ -221,27 +225,37 @@ services:
         <chat_history>
         {{MESSAGES:END:3}}
         </chat_history>
+#      RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: |
+#        ### Opgave:
+#        Analysér samtalehistorikken og generér 1-3 søgeforespørgsler optimeret til semantisk søgning i en vidensbase.
+#
+#        ### Instruktioner:
+#        - Svar **UDELUKKENDE** med et JSON-objekt.
+#        - Basér forespørgsler **udelukkende på brugerens spørgsmål og informationsbehov**. Brug assistentens svar kun til kontekst og disambiguation (f.eks. til at forstå hvad "det", "den anden" refererer til).
+#        - Generér forespørgsler som naturlige sætninger der fanger den semantiske betydning af brugerens informationsbehov.
+#        - Omformuler samtale-referencer ("det", "den anden", "hvad med") til selvstændige, fuldstændige forespørgsler.
+#        - Hver forespørgsel skal dække en forskellig vinkel for at maksimere dækningen af relevante dokumenter.
+#        - Hvis brugerens besked tydeligt ikke kræver dokumentsøgning (f.eks. hilsner), returner: { "queries": [] }
+#        - Svar på samtalens primære sprog; brug dansk som standard.
+#        - Dato: {{CURRENT_DATE}}
+#
+#        ### Output:
+#        { "queries": ["query1", "query2"] }
+#
+#        ### Samtalehistorik:
+#        <chat_history>
+#        {{MESSAGES:END:4}}
+#        </chat_history>
       RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: |
-        ### Opgave:
-        Analysér samtalehistorikken og generér 1-3 søgeforespørgsler optimeret til semantisk søgning i en vidensbase.
-
-        ### Instruktioner:
-        - Svar **UDELUKKENDE** med et JSON-objekt.
-        - Basér forespørgsler **udelukkende på brugerens spørgsmål og informationsbehov**. Brug assistentens svar kun til kontekst og disambiguation (f.eks. til at forstå hvad "det", "den anden" refererer til).
+        ### Retningslinjer for søgning:
+        - Basér forespørgsler **udelukkende på brugerens spørgsmål og informationsbehov**.
+          Brug assistentens svar kun til kontekst og disambiguation (f.eks. til at forstå hvad "det", "den anden" refererer til).
         - Generér forespørgsler som naturlige sætninger der fanger den semantiske betydning af brugerens informationsbehov.
         - Omformuler samtale-referencer ("det", "den anden", "hvad med") til selvstændige, fuldstændige forespørgsler.
         - Hver forespørgsel skal dække en forskellig vinkel for at maksimere dækningen af relevante dokumenter.
-        - Hvis brugerens besked tydeligt ikke kræver dokumentsøgning (f.eks. hilsner), returner: { "queries": [] }
+        - Hvis brugerens besked tydeligt ikke kræver dokumentsøgning (f.eks. hilsner), søg med en tom liste.
         - Svar på samtalens primære sprog; brug dansk som standard.
         - Dato: {{CURRENT_DATE}}
-
-        ### Output:
-        { "queries": ["query1", "query2"] }
-
-        ### Samtalehistorik:
-        <chat_history>
-        {{MESSAGES:END:4}}
-        </chat_history>
       RAG_TEMPLATE: |
         ### Opgave:
         Besvar brugerens spørgsmål ved hjælp af den medfølgende kontekst, og inkorporer kildehenvisninger i formatet [id] **kun når `<source>`-tagget indeholder en eksplicit id-attribut** (f.eks. `<source id="1">`).
@@ -303,8 +317,6 @@ services:
       postgres:
         condition: service_healthy
       tika:
-        condition: service_healthy
-      litellm:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -412,30 +424,6 @@ services:
       HTTP_TIMEOUT_READ: 900.0
       HTTP_TIMEOUT_WRITE: 60.0
       HTTP_TIMEOUT_POOL: 10.0
-
-  litellm:
-    image: ghcr.io/berriai/litellm:${LITELLM_IMAGE:-v1.80.0-stable.1}
-    command: [
-      "--config", "/app/config.yaml",
-      "--detailed_debug",
-      "--num_workers", "8"
-    ]
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
-      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-1234}
-    networks:
-      - app
-    ports:
-      - "4000"
-    healthcheck:
-      test: [ "CMD", "wget", "-O", "/dev/null", "-q", "http://127.0.0.1:4000/health/liveliness" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    volumes:
-      - ./litellm_config.yaml:/app/config.yaml
-      - ./guardrails/message_overflow.py:/app/message_overflow.py
 
   minio-init:
     image: minio/mc
@@ -546,4 +534,49 @@ services:
       - ./.docker/searxng/settings.yml:/etc/searxng/settings.yml
       - ./.docker/data/searxng/data/:/var/cache/searxng/
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
+
+  retrieval:
+    image: ghcr.io/aarhusai/retrieval-agent:latest
+    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - app
+      - frontend
+    ports:
+      - "8000"
+    depends_on:
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      DEBUG: 'True'
+      ENABLE_AGENTIC_RAG: ${ENABLE_AGENTIC_RAG:-true}
+      AGENT_MODEL: ${RAG_EXTERNAL_AGENT_MODEL:-AarhusAI-default}
+      AGENT_API_BASE_URL: ${OPENAI_API_BASE_URL:?}
+      AGENT_API_KEY: ${OPENAI_API_KEY:?}
+      AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-3}
+      INITIAL_RETRIEVAL_MULTIPLIER: ${INITIAL_RETRIEVAL_MULTIPLIER:-3}
+      API_KEY: ${RAG_EXTERNAL_RETRIEVAL_API_KEY:?}
+      # Qdrant settings.
+      QDRANT_URI: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-open-webui}
+      QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
+      # Embedding settings (matches the ones used by ingestion)
+      EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
+
+      ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-true}
+      HYBRID_BM25_WEIGHT: ${HYBRID_BM25_WEIGHT:-0.3}
+
+      ENABLE_RERANKING: ${ENABLE_RERANKING:-false}
+      RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+      RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
+      RERANKER_API_KEY: ${RERANKER_API_KEY:-}
 
