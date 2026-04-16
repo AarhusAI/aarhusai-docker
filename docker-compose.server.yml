@@ -104,7 +104,7 @@ services:
       # Enable api key (for users)
       ENABLE_API_KEYS: ${ENABLE_API_KEYS:-true}
       ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS: ${ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS:-true}
-      API_KEYS_ALLOWED_ENDPOINTS: ${API_KEYS_ALLOWED_ENDPOINTS:-/api/v1/retrieval/,/api/v1/auths/,/api/v1/models,/api/models,/api/v1/models/base,/api/models/base,/api/chat/completions,/api/v1/chat/completions}
+      API_KEYS_ALLOWED_ENDPOINTS: ${API_KEYS_ALLOWED_ENDPOINTS:-/api/v1/retrieval/,/api/v1/auths/,/api/v1/models,/api/models,/api/v1/models/base,/api/models/base,/api/chat/completions,/api/v1/chat/completions,/health}
       # Sharing
       ENABLE_COMMUNITY_SHARING: ${ENABLE_COMMUNITY_SHARING:-false}
       # Disable image capture
