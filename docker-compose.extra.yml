@@ -19,10 +19,14 @@ services:
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-1234}
+      DATABASE_URL: postgresql://litellm:litellm@postgreslite:5432/postgres
     networks:
       - app
     ports:
       - "4000"
+    depends_on:
+      postgreslite:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "-O", "/dev/null", "-q", "http://127.0.0.1:4000/health/liveliness" ]
       interval: 30s
@@ -31,4 +35,22 @@ services:
       start_period: 40s
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-      - ./guardrails/message_overflow.py:/app/message_overflow.py
+      - ./guardrails/message_overflow.py:/app/custom_guardrails/message_overflow.py
+
+  postgreslite:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+      POSTGRES_HOST: localhost
+    networks:
+      - app
+    ports:
+      - "5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - .docker/data/postgreslite:/var/lib/postgresql/data

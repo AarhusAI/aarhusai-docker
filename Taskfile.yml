@@ -10,7 +10,7 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
-  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-3'
+  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-4'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
@@ -34,13 +34,13 @@ vars:
     - name: 'OIDC aak roles and groups'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/33.diff'
       branch: 'feature/oidc-group-claims'
-    # RAG patche
+    # RAG patch
     - name: 'Template for rag queries'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/49.diff'
       branch: 'feature/rag-query-template'
 
   PATCHES_AARHUS:
-    # RAG patches
+    # RAG patch (external)
     - name: 'External RAG service'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/48.diff'
       branch: 'feature/external-retrival'
@@ -53,7 +53,7 @@ vars:
     - name: 'Expose file metadata URL in citation modal'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/44.diff'
       branch: 'feature/citation-modal-url'
-    - name: 'Route MCP tool results through the existing citation pipeline'
+    - name: 'Route MCP tool results through the existing citation pipeline (agentic search)'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/50.diff'
       branch: 'feature/agentic-search'
 
@@ -335,7 +335,7 @@ tasks:
     silent: true
 
   prod:build:
-    desc: Build docker image and push to docker hub
+    desc: Build docker image and push to docker hub (with PATCHES_AARHUS)
     cmds:
       - task: prod:build:shared
         vars:
@@ -343,7 +343,7 @@ tasks:
           PATCH_TASK: patch
 
   prod:build:aarhusai:
-    desc: Build docker image and push to docker hub (AarhusAI)
+    desc: Build docker image and push to os2ai (AarhusAI)
     cmds:
       - task: prod:build:shared
         vars:
