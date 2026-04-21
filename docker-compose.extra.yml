@@ -35,7 +35,7 @@ services:
       start_period: 40s
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-      - ./guardrails/message_overflow.py:/app/custom_guardrails/message_overflow.py
+      - ./guardrails:/app/custom_guardrails
 
   postgreslite:
     image: postgres:17
