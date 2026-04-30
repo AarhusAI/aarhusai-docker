@@ -195,6 +195,11 @@ tasks:
       - task compose -- run --rm -it -e ENV=dev node npm run build
     silent: true
 
+  guardrails:test:
+    desc: "Run pytest against guardrails/ inside a one-shot litellm container"
+    cmds:
+      - docker compose -f docker-compose.yml -f docker-compose.extra.yml run --rm --no-deps --entrypoint "" litellm sh -c "pip install --quiet pytest && pytest /app/custom_guardrails/ -v"
+
   ####
   ## Update webui version helpers (<-- danger zone -->)
   ####

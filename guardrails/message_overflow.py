@@ -1,14 +1,10 @@
 from typing import Literal, Optional, Union
 from litellm.utils import trim_messages, get_max_tokens, token_counter
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
-    get_completion_messages,
-)
 from litellm.integrations.custom_guardrail import CustomGuardrail
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.caching.caching import DualCache
 import logging
 import yaml
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +108,85 @@ class MessageTrimmingGuardrail(CustomGuardrail):
             )
             data["max_tokens"] = safe_completion_tokens
 
+    def _repair_tool_call_pairings(self, messages: list) -> list:
+        """Strip orphan tool messages and orphan tool_calls from assistant messages.
+
+        After `trim_messages` truncates history, tool-call/tool-response pairings
+        can end up broken. Mistral/vLLM rejects such conversations. We keep only
+        tool_calls that have a matching later `role: tool` response, and keep only
+        `role: tool` messages whose `tool_call_id` was advertised by a surviving
+        assistant `tool_calls` entry.
+        """
+        satisfied_ids = {
+            m.get("tool_call_id")
+            for m in messages
+            if m.get("role") == "tool" and m.get("tool_call_id")
+        }
+
+        result = []
+        advertised_ids = set()
+        for msg in messages:
+            role = msg.get("role")
+            if role == "assistant":
+                tcs = msg.get("tool_calls") or []
+                if tcs:
+                    kept_tcs = [tc for tc in tcs if tc.get("id") in satisfied_ids]
+                    content = msg.get("content")
+                    if not kept_tcs and not (content or "").strip():
+                        self._log_debug(
+                            "Dropping assistant message with no content and all tool_calls orphaned"
+                        )
+                        continue
+                    new_msg = dict(msg)
+                    if kept_tcs:
+                        new_msg["tool_calls"] = kept_tcs
+                        advertised_ids.update(tc["id"] for tc in kept_tcs)
+                    else:
+                        new_msg.pop("tool_calls", None)
+                        self._log_debug(
+                            "Stripped all orphan tool_calls from assistant message"
+                        )
+                    result.append(new_msg)
+                else:
+                    result.append(msg)
+            elif role == "tool":
+                if msg.get("tool_call_id") in advertised_ids:
+                    result.append(msg)
+                else:
+                    self._log_debug(
+                        f"Dropping orphan tool message (tool_call_id={msg.get('tool_call_id')})"
+                    )
+            else:
+                result.append(msg)
+        return result
+
+    def _ensure_last_is_user(self, messages: list) -> list:
+        """Guarantee the conversation does not end on an assistant message.
+
+        vLLM's HuggingFace chat template rejects assistant-terminal conversations
+        when `add_generation_prompt=True`. Pops any trailing `role: tool` messages
+        (invalid terminus after trimming), then appends a user continuation
+        message if the new terminus is an assistant message.
+        """
+        if not messages:
+            return messages
+        result = list(messages)
+        while result and result[-1].get("role") == "tool":
+            self._log_debug("Popping trailing tool message from terminus")
+            result.pop()
+        if result and result[-1].get("role") == "assistant":
+            self._log_debug("Appending user continue message after assistant terminus")
+            result.append({"role": "user", "content": "Please continue"})
+        return result
+
+    def _sanitize_messages(self, messages: list) -> list:
+        """Repair tool-call pairings and ensure the conversation does not end
+        on an assistant message. Safe to call on every request."""
+        if not messages:
+            return messages
+        repaired = self._repair_tool_call_pairings(messages)
+        return self._ensure_last_is_user(repaired)
+
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
@@ -196,54 +271,35 @@ class MessageTrimmingGuardrail(CustomGuardrail):
                 self._log_debug(
                     f"Input tokens ({current_tokens}) exceed limit ({max_input_tokens}), trimming messages..."
                 )
-                # Trim messages to fit
                 data["messages"] = trim_messages(
                     data["messages"],
                     model=model,
-                    max_tokens=int(
-                        max_input_tokens * 0.90
-                    ),  # Trim to 90% of already conservative max
+                    max_tokens=int(max_input_tokens * 0.90),
                     trim_ratio=self.trim_ratio,
                 )
-
-                # Ensure "ensure_alternating_roles" is fixed for message after trim
-                data["messages"] = get_completion_messages(
-                    messages=data["messages"],
-                    assistant_continue_message={"role": "assistant", "content": ""},
-                    user_continue_message={
-                        "role": "user",
-                        "content": "Please continue",
-                    },
-                    ensure_alternating_roles=True,
-                )
-                # Recount after trimming
-                try:
-                    new_token_count = token_counter(
-                        model=model, messages=data["messages"]
-                    )
-                    self._log_debug(f"After trimming, input tokens: {new_token_count}")
-
-                    # RECALCULATE safe completion tokens based on actual trimmed input
-                    safe_completion_tokens = self._calculate_safe_completion_tokens(
-                        max_context_tokens, new_token_count, requested_completion
-                    )
-                    self._log_debug(
-                        f"Recalculated safe completion tokens after trim: {safe_completion_tokens}"
-                    )
-
-                    # Update the data with the recalculated values
-                    self._update_completion_tokens(
-                        data, safe_completion_tokens, has_max_tokens, has_max_completion
-                    )
-
-                    # Update for final logging
-                    current_tokens = new_token_count
-                except Exception as e:
-                    self._log_debug(f"Failed to recount tokens after trim: {e}")
             else:
                 self._log_debug(
                     f"No trimming needed, but current={current_tokens}, max={max_input_tokens}"
                 )
+
+            # Always sanitize: repair tool-call pairings and ensure the conversation
+            # does not end on an assistant message (rejected by vLLM chat template).
+            data["messages"] = self._sanitize_messages(data["messages"])
+
+            # Recount once after sanitize — messages may have grown (user continue
+            # appended) or shrunk (orphan tool / empty assistant dropped).
+            try:
+                final_tokens = token_counter(model=model, messages=data["messages"])
+                self._log_debug(f"After sanitize, input tokens: {final_tokens}")
+                safe_completion_tokens = self._calculate_safe_completion_tokens(
+                    max_context_tokens, final_tokens, requested_completion
+                )
+                self._update_completion_tokens(
+                    data, safe_completion_tokens, has_max_tokens, has_max_completion
+                )
+                current_tokens = final_tokens
+            except Exception as e:
+                self._log_debug(f"Failed to recount tokens after sanitize: {e}")
 
             self._log_debug(
                 f"Expected total: input ~{int(current_tokens)} + completion {safe_completion_tokens} + buffer {self.safety_buffer} = ~{int(current_tokens) + safe_completion_tokens + self.safety_buffer}/{max_context_tokens}"
