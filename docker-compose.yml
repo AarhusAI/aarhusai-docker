@@ -590,8 +590,8 @@ services:
       QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
       # Embedding settings (matches the ones used by ingestion)
       EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
       EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
 
       ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-true}
