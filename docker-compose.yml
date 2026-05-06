@@ -559,8 +559,12 @@ services:
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
 
   retrieval:
-    image: ghcr.io/aarhusai/retrieval-agent:latest
-    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    #image: ghcr.io/aarhusai/retrieval-agent:latest
+    build:
+      dockerfile: Dockerfile
+      context: ./retrieval-agent
+      target: dev
+    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     networks:
       - app
       - frontend
@@ -584,6 +588,10 @@ services:
       AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-3}
       INITIAL_RETRIEVAL_MULTIPLIER: ${INITIAL_RETRIEVAL_MULTIPLIER:-3}
       API_KEY: ${RAG_EXTERNAL_RETRIEVAL_API_KEY:?}
+      AGENT_FETCH_K: ${AGENT_FETCH_K:-20}
+      AGENT_PREVIEW_K: ${AGENT_PREVIEW_K:-5}
+      AGENT_CONVERSATION_HISTORY_MESSAGES: ${AGENT_CONVERSATION_HISTORY_MESSAGES:-4}
+      AGENT_TOOL_PREVIEW_CHARS: ${AGENT_TOOL_PREVIEW_CHARS:-200}
       # Qdrant settings.
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
@@ -602,10 +610,16 @@ services:
       RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
       RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
       RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+    volumes:
+      - ./retrieval-agent/:/app
 
   ingestion:
-    image: ghcr.io/aarhusai/ingestion-service:latest
-    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    #image: ghcr.io/aarhusai/ingestion-service:latest
+    build:
+      dockerfile: Dockerfile
+      context: ./ingestion-service
+      target: dev
+    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     networks:
       - app
       - frontend
@@ -653,4 +667,5 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_REGION: us-east-1
-
+    volumes:
+      - ./ingestion-service/:/app
