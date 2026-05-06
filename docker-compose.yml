@@ -100,6 +100,11 @@ services:
       RAG_EXTERNAL_BYPASS_QUERY_GENERATION: "${RAG_EXTERNAL_BYPASS_QUERY_GENERATION:-true}"
       RAG_EXTERNAL_MESSAGE_COUNT: "${RAG_EXTERNAL_MESSAGE_COUNT:-2}"
       RAG_EXTERNAL_USER_MESSAGES_ONLY: "${RAG_EXTERNAL_USER_MESSAGES_ONLY:-true}"
+      # External ingestion (Phase 1: delegation hook only; service comes in Phase 2)
+      EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
+      EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
+      EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
+      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-300}"
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
