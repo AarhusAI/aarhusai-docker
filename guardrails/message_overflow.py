@@ -29,6 +29,27 @@ class MessageTrimmingGuardrail(CustomGuardrail):
         self.safety_buffer = default_config.get("safety_buffer", 500)
         self.debug = default_config.get("debug", False)
 
+        # Context-window resolution: per-model map wins, then litellm's
+        # built-in get_max_tokens, then this global default.
+        self.default_max_context_tokens = default_config.get(
+            "default_max_context_tokens", 8192
+        )
+        self.max_context_tokens_by_model = default_config.get(
+            "max_context_tokens_by_model", {}
+        ) or {}
+
+        # Trailing role:tool handling. Default is to PRESERVE trailing tool
+        # messages — the agent-loop shape `User -> Asst{tool_calls} -> Tool`
+        # is the normal way to ask the model to reason from tool results.
+        # Only enable for upstream chat templates that explicitly reject
+        # tool-terminal conversations (e.g. strict HF Mistral v0.3 template).
+        self.pop_trailing_tool_messages = bool(
+            default_config.get("pop_trailing_tool_messages", False)
+        )
+        self.pop_trailing_tool_messages_by_model = default_config.get(
+            "pop_trailing_tool_messages_by_model", {}
+        ) or {}
+
     def _load_config(self):
         with open("config.yaml", "r") as file:
             config = yaml.safe_load(file)
@@ -51,6 +72,37 @@ class MessageTrimmingGuardrail(CustomGuardrail):
         """Log debug messages if debug mode is enabled."""
         if self.debug:
             print(f"[GUARDRAIL] {message}")
+
+    def _resolve_max_context_tokens(self, model: Optional[str]) -> int:
+        """Resolve the model's context-window size.
+
+        Order: per-model override map -> litellm.get_max_tokens -> global default.
+        litellm's `model_prices_and_context_window.json` doesn't cover every
+        proxied model name (vLLM, Bedrock variants, custom deployments...),
+        so falling through to a single hardcoded number is a footgun on a
+        fleet with mixed 8k/32k/128k models.
+        """
+        if model and model in self.max_context_tokens_by_model:
+            return int(self.max_context_tokens_by_model[model])
+        try:
+            resolved = get_max_tokens(model)
+            if resolved:
+                return int(resolved)
+        except Exception as e:
+            logger.warning(
+                "get_max_tokens(%r) failed (%s); falling back to "
+                "default_max_context_tokens=%d",
+                model,
+                e,
+                self.default_max_context_tokens,
+            )
+        return int(self.default_max_context_tokens)
+
+    def _resolve_pop_trailing_tools(self, model: Optional[str]) -> bool:
+        """Per-model override > global default. See `pop_trailing_tool_messages`."""
+        if model and model in self.pop_trailing_tool_messages_by_model:
+            return bool(self.pop_trailing_tool_messages_by_model[model])
+        return self.pop_trailing_tool_messages
 
     def _calculate_safe_completion_tokens(
         self,
@@ -160,32 +212,57 @@ class MessageTrimmingGuardrail(CustomGuardrail):
                 result.append(msg)
         return result
 
-    def _ensure_last_is_user(self, messages: list) -> list:
+    def _ensure_last_is_user(
+        self, messages: list, pop_trailing_tools: bool = False
+    ) -> list:
         """Guarantee the conversation does not end on an assistant message.
 
-        vLLM's HuggingFace chat template rejects assistant-terminal conversations
-        when `add_generation_prompt=True`. Pops any trailing `role: tool` messages
-        (invalid terminus after trimming), then appends a user continuation
-        message if the new terminus is an assistant message.
+        Always appends a user continuation message if the terminus is an
+        assistant message (some chat templates reject assistant-terminal
+        conversations under `add_generation_prompt=True`).
+
+        When `pop_trailing_tools=True`, also pops any trailing `role: tool`
+        messages first — needed for strict templates (e.g. HF Mistral v0.3)
+        that reject tool-role messages outright. Note: popping can break
+        tool-call/tool-response pairings; callers should re-run
+        `_repair_tool_call_pairings` after to clean up.
         """
         if not messages:
             return messages
         result = list(messages)
-        while result and result[-1].get("role") == "tool":
-            self._log_debug("Popping trailing tool message from terminus")
-            result.pop()
+        if pop_trailing_tools:
+            while result and result[-1].get("role") == "tool":
+                self._log_debug("Popping trailing tool message from terminus")
+                result.pop()
         if result and result[-1].get("role") == "assistant":
             self._log_debug("Appending user continue message after assistant terminus")
             result.append({"role": "user", "content": "Please continue"})
         return result
 
-    def _sanitize_messages(self, messages: list) -> list:
-        """Repair tool-call pairings and ensure the conversation does not end
-        on an assistant message. Safe to call on every request."""
+    def _sanitize_messages(self, messages: list, model: Optional[str] = None) -> list:
+        """Repair tool-call pairings and fix the terminus. Safe to call on
+        every request.
+
+        Order matters: the second repair has to run *before* we decide
+        whether to append a user-continue, because popping a trailing tool
+        may expose an empty assistant whose only `tool_calls` were just
+        orphaned — repair will drop that assistant entirely, and we don't
+        want to append `"Please continue"` on top of a now-defunct terminus.
+        """
         if not messages:
             return messages
-        repaired = self._repair_tool_call_pairings(messages)
-        return self._ensure_last_is_user(repaired)
+        pop = self._resolve_pop_trailing_tools(model)
+        result = self._repair_tool_call_pairings(messages)
+        if pop:
+            while result and result[-1].get("role") == "tool":
+                self._log_debug("Popping trailing tool message from terminus")
+                result.pop()
+            # Pop may have orphaned tool_calls on the now-terminal assistant.
+            result = self._repair_tool_call_pairings(result)
+        if result and result[-1].get("role") == "assistant":
+            self._log_debug("Appending user continue message after assistant terminus")
+            result.append({"role": "user", "content": "Please continue"})
+        return result
 
     async def async_pre_call_hook(
         self,
@@ -207,11 +284,8 @@ class MessageTrimmingGuardrail(CustomGuardrail):
         if "messages" in data and data["messages"]:
             model = data.get("model")
 
-            # Get model's context window size
-            try:
-                max_context_tokens = get_max_tokens(model)
-            except:
-                max_context_tokens = 8192  # Default fallback
+            # Get model's context window size (per-model map -> litellm -> default).
+            max_context_tokens = self._resolve_max_context_tokens(model)
 
             self._log_debug(f"Model: {model}")
             self._log_debug(f"Max context tokens: {max_context_tokens}")
@@ -246,7 +320,7 @@ class MessageTrimmingGuardrail(CustomGuardrail):
 
             self._log_debug(f"Safe completion tokens: {safe_completion_tokens}")
             self._log_debug(
-                f"Calculation: min({requested_completion}, max(512, ({max_context_tokens} - {int(current_tokens)} - {self.safety_buffer}) * 0.90))"
+                f"Calculation: min({requested_completion}, max(256, ({max_context_tokens} - {int(current_tokens)} - {self.safety_buffer}) * 0.75))"
             )
 
             # Update completion tokens in the request
@@ -282,9 +356,10 @@ class MessageTrimmingGuardrail(CustomGuardrail):
                     f"No trimming needed, but current={current_tokens}, max={max_input_tokens}"
                 )
 
-            # Always sanitize: repair tool-call pairings and ensure the conversation
-            # does not end on an assistant message (rejected by vLLM chat template).
-            data["messages"] = self._sanitize_messages(data["messages"])
+            # Always sanitize: repair tool-call pairings and (optionally, per
+            # `pop_trailing_tool_messages` config) coerce the terminus into a
+            # user message so strict chat templates accept the request.
+            data["messages"] = self._sanitize_messages(data["messages"], model=model)
 
             # Recount once after sanitize — messages may have grown (user continue
             # appended) or shrunk (orphan tool / empty assistant dropped).
