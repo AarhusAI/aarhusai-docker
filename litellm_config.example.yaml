@@ -30,3 +30,17 @@ guardrails:
       max_output_tokens: 2000
       safety_buffer: 500
       debug: true
+      # Used when neither the per-model map below nor litellm.get_max_tokens
+      # can resolve the proxied model name.
+      default_max_context_tokens: 8192
+      # Optional per-model overrides. Keys must match the upstream `model:`
+      # litellm sends to the provider (NOT the friendly `model_name`).
+      # Example: openai/some-vllm-model: 32768
+      max_context_tokens_by_model: {}
+      # Strict chat templates (e.g. HF Mistral v0.3) reject tool-terminal
+      # conversations. Default is FALSE so the normal agent-loop shape
+      # `User -> Asst{tool_calls} -> Tool` is preserved and the model can
+      # reason from the tool result. Flip to true (globally or per-model)
+      # only for upstream templates that reject role:tool messages.
+      pop_trailing_tool_messages: false
+      pop_trailing_tool_messages_by_model: {}
