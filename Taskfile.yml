@@ -12,6 +12,12 @@ vars:
   OPEN_WEBUI_VERSION: 'v0.8.10'
   PROD_OPEN_WEBUI_VERSION: 'v0.8.10-2'
   TARGET_DIR: 'open-webui'
+
+  # MCP DAWA
+  MCP_DAWA_REPO: 'https://github.com/itk-dev/mcp-dawa.git'
+  MCP_DAWA_BRANCH: 'main'
+  MCP_DAWA_DIR: 'tools/mcp-dawa'
+
   PATCHES:
     - name: 'Pinned info banner'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/32.diff'
@@ -340,3 +346,19 @@ tasks:
         vars:
           IMAGE_NAME: ghcr.io/os2ai/open-webui
           PATCH_TASK: patch:base
+
+  ####
+  ## MCP tools
+  ####
+  mcp:dawa:install:
+    desc: "Clone mcp-dawa into tools folder"
+    cmds:
+      - git clone --branch {{ .MCP_DAWA_BRANCH }} --single-branch {{ .MCP_DAWA_REPO }} {{ .MCP_DAWA_DIR }}
+    silent: true
+
+  mcp:dawa:update:
+    desc: "Update mcp-dawa to latest on {{ .MCP_DAWA_BRANCH }}"
+    dir: "{{ .MCP_DAWA_DIR }}"
+    cmds:
+      - git pull
+    silent: true

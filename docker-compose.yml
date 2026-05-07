@@ -469,3 +469,21 @@ services:
       - ./.docker/data/searxng/data/:/var/cache/searxng/
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
 
+  mcp-dawa:
+    build:
+      context: tools/mcp-dawa
+    networks:
+      - app
+    ports:
+      - "8000"
+    environment:
+      DAWA_BASE_URL: ${DAWA_BASE_URL:-https://adressevaelger.dk}
+      DAWA_TOKEN: ${DAWA_TOKEN:-adressevaelger123}
+      # 0751 = Aarhus Kommune
+      DAWA_KOMMUNEKODE: ${DAWA_KOMMUNEKODE:-0751}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost',8000)); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
