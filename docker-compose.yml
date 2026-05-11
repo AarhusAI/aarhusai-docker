@@ -100,7 +100,7 @@ services:
       RAG_EXTERNAL_BYPASS_QUERY_GENERATION: "${RAG_EXTERNAL_BYPASS_QUERY_GENERATION:-true}"
       RAG_EXTERNAL_MESSAGE_COUNT: "${RAG_EXTERNAL_MESSAGE_COUNT:-2}"
       RAG_EXTERNAL_USER_MESSAGES_ONLY: "${RAG_EXTERNAL_USER_MESSAGES_ONLY:-true}"
-      # External ingestion (Phase 1: delegation hook only; service comes in Phase 2)
+      # External ingestion
       EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
       EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
       EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
@@ -599,8 +599,8 @@ services:
       QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
       # Embedding settings (matches the ones used by ingestion)
       EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
       EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
 
       ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-true}
@@ -610,6 +610,11 @@ services:
       RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
       RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
       RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      # Container user has no writable $HOME, so point HF + fastembed
+      # caches at /tmp. fastembed needs this for the BM42 sparse model
+      # used in hybrid retrieval (matches the ingestion side).
+      HF_HOME: /tmp/hf-cache
+      FASTEMBED_CACHE_PATH: /tmp/fastembed-cache
     volumes:
       - ./retrieval-agent/:/app
 
@@ -642,20 +647,35 @@ services:
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-tika}
       TIKA_URL: http://tika:9998
-      # Chunking
-      CHUNK_SIZE: ${CHUNK_SIZE:-440}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
-      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-word}
-      # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim)
+      # Chunking — token mode measures with the embedding model's HF
+      # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
+      # so chunks respect the 512-token cap on e5-large. word/sentence/passage
+      # delegate to Haystack's built-in DocumentSplitter.
+      CHUNK_SIZE: ${CHUNK_SIZE:-400}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-token}
+      TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
+      # Container user has no writable $HOME, so point HF + fastembed caches
+      # at /tmp. Tokenizer (~5 MB) re-downloads on container restart; mount
+      # a named volume here if you want to persist it across rebuilds.
+      HF_HOME: /tmp/hf-cache
+      FASTEMBED_CACHE_PATH: /tmp/fastembed-cache
+      # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
+      # Note: RAG_EMBEDDING_OPENAI_* point at the embedding service (embed.itkdev.dk),
+      # NOT RAG_OPENAI_* which is the LLM proxy. Mixing them sends an LLM key to the
+      # embedder and trips a 401 from the upstream gateway.
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai-compat}
-      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
       EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
       EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
       EMBEDDING_PREFIX_DOC: "${EMBEDDING_PREFIX_DOC:-passage: }"
       EMBEDDING_PREFIX_QUERY: "${EMBEDDING_PREFIX_QUERY:-query: }"
-      # Sparse embedder (off by default; flip on for hybrid retrieval)
-      ENABLE_SPARSE_EMBEDDINGS: ${ENABLE_SPARSE_EMBEDDINGS:-false}
+      # Sparse embedder — required so Haystack writes named vectors
+      # (text-dense + text-sparse) the retrieval agent expects. Also
+      # unlocks server-side RRF hybrid retrieval. The fastembed BM42
+      # model (~80MB) is downloaded once per container into /tmp.
+      ENABLE_SPARSE_EMBEDDINGS: ${ENABLE_SPARSE_EMBEDDINGS:-true}
       SPARSE_EMBEDDING_PROVIDER: ${SPARSE_EMBEDDING_PROVIDER:-fastembed}
       SPARSE_EMBEDDING_MODEL: ${SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
       # Qdrant — fresh collection, separate from Open WebUI's legacy multitenancy collections
