@@ -95,8 +95,8 @@ services:
       OLLAMA_BASE_URL: 'http://localhost:11434'
       # Enable OpenAI.
       ENABLE_OPENAI_API: true
-      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-http://litellm:4000/v1}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-1234}
+      OPENAI_API_BASE_URLS: ${OPENAI_API_BASE_URLS:-http://litellm:4000/v1}
+      OPENAI_API_KEYS: ${OPENAI_API_KEYS:-sk-1234}
       # Disable direct connections (do not allow users to connect to new servers)
       ENABLE_DIRECT_CONNECTIONS: ${ENABLE_DIRECT_CONNECTIONS:-false}
       # User profile notification webhooks
