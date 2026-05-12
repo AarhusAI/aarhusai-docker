@@ -410,6 +410,27 @@ services:
     networks:
       - app
 
+  kreuzberg:
+    image: goldziher/kreuzberg:4.0.7-core
+    command: [ "serve", "-H", "0.0.0.0", "-p", "8000" ]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app
+
   minio-init:
     image: minio/mc
     depends_on:
@@ -589,6 +610,7 @@ services:
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-tika}
       TIKA_URL: http://tika:9998
+      KREUZBERG_URL: http://kreuzberg:8000
       # Chunking
       CHUNK_SIZE: ${CHUNK_SIZE:-440}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}

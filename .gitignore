@@ -3,3 +3,7 @@ open-webui/
 .env
 litellm_config.yaml
 guardrails/__pycache__/
+
+# Development
+ingestion-service/
+retrieval-agent/

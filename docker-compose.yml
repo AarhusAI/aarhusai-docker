@@ -402,6 +402,24 @@ services:
       retries: 3
       start_period: 20s
 
+  kreuzberg:
+    image: goldziher/kreuzberg:4.0.7-core
+    command: [ "serve", "-H", "0.0.0.0", "-p", "8000" ]
+    networks:
+      - app
+    ports:
+      - "8000"
+    environment:
+      # Per-request + extraction tracing. Use `info` (default) for quiet,
+      # `debug` for one line per request, `trace` for very chatty internals.
+      RUST_LOG: "kreuzberg=debug,tower_http=debug,axum=info"
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   doc-ingestion:
     image: itkdev/doc-ingestion-route:latest
     platform: linux/amd64
@@ -645,15 +663,16 @@ services:
       DEBUG: 'True'
       API_KEY: ${INGESTION_API_KEY:?}
       # Extraction
-      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-tika}
+      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
       TIKA_URL: http://tika:9998
+      KREUZBERG_URL: http://kreuzberg:8000
       # Chunking — token mode measures with the embedding model's HF
       # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
       # so chunks respect the 512-token cap on e5-large. word/sentence/passage
       # delegate to Haystack's built-in DocumentSplitter.
       CHUNK_SIZE: ${CHUNK_SIZE:-400}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
-      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-token}
+      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
       # Container user has no writable $HOME, so point HF + fastembed caches
       # at /tmp. Tokenizer (~5 MB) re-downloads on container restart; mount
