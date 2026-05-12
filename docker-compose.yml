@@ -100,7 +100,7 @@ services:
       RAG_EXTERNAL_BYPASS_QUERY_GENERATION: "${RAG_EXTERNAL_BYPASS_QUERY_GENERATION:-true}"
       RAG_EXTERNAL_MESSAGE_COUNT: "${RAG_EXTERNAL_MESSAGE_COUNT:-2}"
       RAG_EXTERNAL_USER_MESSAGES_ONLY: "${RAG_EXTERNAL_USER_MESSAGES_ONLY:-true}"
-      # External ingestion
+      # Ingestion (EXTERNAL)
       EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
       EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
       EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
@@ -629,12 +629,14 @@ services:
       RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
       RERANKER_API_KEY: ${RERANKER_API_KEY:-}
       # Container user has no writable $HOME, so point HF + fastembed
-      # caches at /tmp. fastembed needs this for the BM42 sparse model
-      # used in hybrid retrieval (matches the ingestion side).
-      HF_HOME: /tmp/hf-cache
-      FASTEMBED_CACHE_PATH: /tmp/fastembed-cache
+      # caches under /cache, which is backed by a named volume so the
+      # ~80 MB BM42 sparse model survives `docker compose restart`
+      # instead of re-downloading every cold start.
+      HF_HOME: /cache/hf
+      FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ./retrieval-agent/:/app
+      - retrieval_model_cache:/cache
 
   ingestion:
     #image: ghcr.io/aarhusai/ingestion-service:latest
@@ -675,10 +677,13 @@ services:
       CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
       # Container user has no writable $HOME, so point HF + fastembed caches
-      # at /tmp. Tokenizer (~5 MB) re-downloads on container restart; mount
-      # a named volume here if you want to persist it across rebuilds.
-      HF_HOME: /tmp/hf-cache
-      FASTEMBED_CACHE_PATH: /tmp/fastembed-cache
+      # under /cache, which is backed by a named volume so models (BM42
+      # sparse ~80 MB, e5-large tokenizer ~5 MB) survive `docker compose
+      # restart` instead of re-downloading every cold start. The pipeline
+      # warm-up in init_pipeline() touches both at lifespan startup so the
+      # first user-facing ingest never waits on HuggingFace.
+      HF_HOME: /cache/hf
+      FASTEMBED_CACHE_PATH: /cache/fastembed
       # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
       # Note: RAG_EMBEDDING_OPENAI_* point at the embedding service (embed.itkdev.dk),
       # NOT RAG_OPENAI_* which is the LLM proxy. Mixing them sends an LLM key to the
@@ -693,7 +698,9 @@ services:
       # Sparse embedder — required so Haystack writes named vectors
       # (text-dense + text-sparse) the retrieval agent expects. Also
       # unlocks server-side RRF hybrid retrieval. The fastembed BM42
-      # model (~80MB) is downloaded once per container into /tmp.
+      # model (~80MB) lives in the ingestion_model_cache named volume
+      # and is loaded once per `docker compose up` via the pipeline
+      # warm-up in init_pipeline().
       ENABLE_SPARSE_EMBEDDINGS: ${ENABLE_SPARSE_EMBEDDINGS:-true}
       SPARSE_EMBEDDING_PROVIDER: ${SPARSE_EMBEDDING_PROVIDER:-fastembed}
       SPARSE_EMBEDDING_MODEL: ${SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
@@ -708,3 +715,12 @@ services:
       S3_REGION: us-east-1
     volumes:
       - ./ingestion-service/:/app
+      - ingestion_model_cache:/cache
+
+volumes:
+  # Named volumes for embedding-model caches. Survive `docker compose restart`
+  # so the ~80 MB BM42 sparse model and the e5-large tokenizer download only
+  # on first start per host. `docker compose down -v` wipes them; that's the
+  # operator's choice for a full reset.
+  ingestion_model_cache:
+  retrieval_model_cache:
