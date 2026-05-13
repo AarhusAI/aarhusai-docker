@@ -548,7 +548,6 @@ services:
     restart: unless-stopped
     networks:
       - app
-      - frontend
     depends_on:
       qdrant:
         condition: service_started
@@ -600,7 +599,6 @@ services:
     restart: unless-stopped
     networks:
       - app
-      - frontend
     depends_on:
       qdrant:
         condition: service_started
@@ -619,8 +617,8 @@ services:
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
       TIKA_URL: http://tika:9998
       KREUZBERG_URL: http://kreuzberg:8000
-      CHUNK_SIZE: ${CHUNK_SIZE:-400}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      CHUNK_SIZE: ${CHUNK_SIZE:-500}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
       # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
