@@ -10,7 +10,7 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
-  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-4'
+  PROD_OPEN_WEBUI_VERSION: 'v0.8.12-5'
   TARGET_DIR: 'open-webui'
   PATCHES:
     - name: 'Pinned info banner'
@@ -41,9 +41,9 @@ vars:
 
   PATCHES_AARHUS:
     # RAG patch (external)
-    - name: 'External RAG service'
-      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/48.diff'
-      branch: 'feature/external-retrival'
+    - name: 'External RAG/Ingestion service'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/52.diff'
+      branch: 'feature/external-ingest-rag'
     - name: 'Allow only admin users to generate API-KEY for the backend'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/41.diff'
       branch: 'feature/admin-api-keys'
@@ -339,7 +339,7 @@ tasks:
       - docker push {{ .IMAGE_NAME }}:latest
     silent: true
 
-  prod:build:
+  prod:build:aarhusai:
     desc: Build docker image and push to docker hub (with PATCHES_AARHUS)
     cmds:
       - task: prod:build:shared
@@ -347,8 +347,8 @@ tasks:
           IMAGE_NAME: itkdev/openwebui
           PATCH_TASK: patch
 
-  prod:build:aarhusai:
-    desc: Build docker image and push to os2ai (AarhusAI)
+  prod:build:os2ai:
+    desc: Build docker image and push to OS2ai
     cmds:
       - task: prod:build:shared
         vars:
