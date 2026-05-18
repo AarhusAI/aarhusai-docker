@@ -67,7 +67,10 @@ tasks:
   compose:
     desc: "Run `docker compose` command. Example: task compose -- up --detach"
     cmds:
-      - '{{ .DOCKER_COMPOSE }} {{ .CLI_ARGS }}'
+      - cmd: '{{ .DOCKER_COMPOSE }} {{ .CLI_ARGS }}'
+        platforms: [amd64]
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml {{ .CLI_ARGS }}'
+        platforms: [arm64]
 
   ####
   ## Git helpers

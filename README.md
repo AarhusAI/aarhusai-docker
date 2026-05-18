@@ -1,119 +1,158 @@
-# Docker setup for open WebUI
+# Docker setup for Open WebUI
 
-https://docs.openwebui.com/
+Docker deployment wrapper for a customized fork of [Open WebUI](https://docs.openwebui.com/),
+tailored for Aarhus Kommune. The fork lives at
+[AarhusAI/open-webui](https://github.com/AarhusAI/open-webui) and is cloned into `./open-webui/`
+during install.
+
+This repo does **not** contain the Open WebUI source — it manages Docker orchestration,
+configuration, and a patch system applied on top of tagged upstream releases.
 
 ## Install
-
-Use the task file to install it.
 
 ```shell
 task git:clone
 task install
 ```
 
-### Task install
+`task install` does the full dance: resets the `open-webui` checkout to the pinned
+`OPEN_WEBUI_VERSION`, applies all patches (base + Aarhus), copies config from the example
+files, pulls containers, brings them up, and builds the frontend.
 
-Installs open-webui from this fork of [open-webui](https://github.com/itk-dev/open-webui).
+### ARM hosts (Apple Silicon, ARM Linux)
+
+`task compose` auto-detects the host architecture. On `arm64` it transparently layers
+`docker-compose.arm.yml` on top of `docker-compose.yml`, which pins the openwebui image build
+to `linux/arm64`. No flags or environment tweaks required.
 
 ### Storage
 
-Log into minio and create the bucket "openwebui" before uploading files.
+The `openwebui` MinIO bucket is created automatically by the `minio-init` service on first
+boot — no manual step required.
 
 ## Usage
 
 ```shell
-task open
+task open                     # open the app in your browser
+task compose -- up --detach   # bring services up
+task compose -- logs -f openwebui
 ```
+
+## Configuring connections and models
+
+The `litellm_config.yaml` file should have the proper API keys. If these were not set from
+the get-go, restart the container with the new values:
+
+```shell
+task compose -- restart litellm
+```
+
+Then go to `/admin/settings/connections` and configure the connection: OpenAI API base URL
+`http://litellm:4000/v1`, API key `sk-1234` (see `docker-compose.yml`). Models then appear
+under `/admin/settings/models`.
 
 ## OIDC
 
-An (incomplete) OIDC dev setup with a mock server is included. Currently, this fails with
+An (incomplete) OIDC dev setup with a mock server is included in `docker-compose.oidc.yml`.
+Currently broken with:
 
 ```text
 Unhandled exception. System.IO.FileLoadException: Could not load file or assembly 'OpenIdConnectServerMock, Version=0.10.1.0, Culture=neutral, PublicKeyToken=null'.
 ```
 
-## Configuring connections and models and stuff
+## Guardrails
 
-The `litellm_config.yaml` file should have the proper api keys. If these were not set from the get-go, you should
-restart the container with the new values.
+Custom LiteLLM guardrails live in `guardrails/` and are bind-mounted into the `litellm`
+container. Run the test suite with:
 
-Go to `/admin/settings/connections` and configure the connections, OpenAI API should have the Api Base Url
-`http://litellm:4000/v1` and api key `sk-1234` (see `docker.compose.yml`). Then the models will appear in the models
-tab: `/admin/settings/models`.
+```shell
+task guardrails:test
+```
 
 ## Patching
 
-This project requires us to make changes that the upstream project may not appreciate. We need to be able to keep
-this project in sync with the upstream and at the same time track local changes/patches to the codebase.
+This project needs changes the upstream project may not accept. To stay in sync with
+upstream while tracking local modifications, we manage patches as GitHub PR diffs on the
+fork, applied via `git apply`.
 
-We use branches and local pull request against our own fork to track changes and go-task to manage the patches. The pull requests can be
-found [in this repository](https://github.com/itk-dev/open-webui/pulls). Notice the use of labels to mark pull requests as patches,
-mark when pull requests are approved and to mark which pull requests are pending upstream.
+There are **two patch sets** defined in `Taskfile.yml`:
 
-### Update pull requests
+- `PATCHES` — generic features (pinned banner, TTS auth, extra permissions, OAuth fixes,
+  model search, role/group claims, RAG template).
+- `PATCHES_AARHUS` — org-specific (external RAG service, admin-only API keys,
+  branding/UI, citation modal, agentic search).
 
-When a new upstream release is published, we need to update the patches to the new release.
+Each patch corresponds to a PR on the fork repo with a `feature/*` branch. See the open
+PRs at [AarhusAI/open-webui/pulls](https://github.com/AarhusAI/open-webui/pulls). Labels
+mark patches, approval state, and pending-upstream status.
 
-First we need to update `dev` and `main` branches with upstream. This is easily done on GitHub. But as GitHub does not
-synchronize the tags, the following task can be used to do that:
-
-```shell
-task git:sync:tags
-```
-
-Then we can update the patches. This requires some manual steps to ensure that the patches can be applied cleanly.
-First create a new branch based on the upstream tag, named `upstream/<release tag>`, which then is used as the new base
-branch for the patches.
+Apply patches:
 
 ```shell
-task git:checkout:dev
-git checkout -b upstream/<release tag>
-git push origin -u upstream/<release tag>
+task patch         # base + Aarhus
+task patch:base    # base only
+task patch:aarhus  # Aarhus only
 ```
 
-Then go to [https://github.com/itk-dev/open-webui/pulls](https://github.com/itk-dev/open-webui/pulls) and changes each
-PR's base branch to the new branch.
+### Updating to a new upstream release
 
-Lastly, checkout each branch locally and rebase it on the new base branch.
+When a new upstream release is published, the patches need to be rebased onto the new tag.
+
+1. Sync `dev` and `main` branches with upstream (do this on GitHub).
+2. Sync tags (GitHub doesn't propagate them):
+
+   ```shell
+   task git:sync:tags
+   ```
+
+3. Create a new base branch from the new upstream tag:
+
+   ```shell
+   task git:checkout:dev
+   git checkout -b upstream/<release tag>
+   git push origin -u upstream/<release tag>
+   ```
+
+4. Update each PR's base branch to the new `upstream/<release tag>` on GitHub.
+5. Update `OPEN_WEBUI_VERSION` and `OPEN_WEBUI_PREV_VERSION` in `Taskfile.yml`.
+6. Rebase all patch branches automatically:
+
+   ```shell
+   task patches:rebase
+   ```
+
+7. If conflicts arise, resolve them locally per branch (`git add .` + `git rebase --continue`).
+8. Force-push the rebased branches:
+
+   ```shell
+   task patches:force
+   ```
+
+If you need to discard local patch-branch state and reset back to what's on GitHub:
 
 ```shell
-git checkout feature/<PR branch>
-git rebase --onto upstream/<new tag (e.g. v0.6.27)> upstream/<old tag (e.g. v0.6.26)> 
+task patches:reset
 ```
-
-Resolve any conflicts (if any, using `add` and `rebase --continue`).
-
-```shell
-git add .
-git rebase --continue
-```
-
-Push the branch to the remote.
-```shell
-git push origin feature/<PR branch>
-```
-
-### Branches
-
-* `upstream/<release tag>`
 
 ### Rules
 
-So the following rules should help with this goal.
-
-1. Prefix all commits with a ticket number, this is to be able to remove a single change or isolate a change for easier
-   merge conflict handling.
-2. Always first try to make at pull request back
-   to [https://github.com/open-webui/open-webui/](https://github.com/open-webui/open-webui/), if the request is
-   declined, make a new pull request to the patche branch above based on what you change are.
-3. Wrap patches in a comment clearly stating it is a patch, and some text on what or why.
+1. Prefix all commits with a ticket number, so a single change can be isolated or removed
+   when resolving merge conflicts.
+2. Always first try to open a PR against
+   [open-webui/open-webui](https://github.com/open-webui/open-webui). If declined, open a
+   PR against the corresponding `feature/*` branch on the fork.
+3. Wrap patches in comments clearly stating that it is a patch, with a short note on
+   what and why.
 
 ## Production
 
-To build image for production first edit the `Taskfile.yaml` and update the `PROD_OPEN_WEBUI_VERSION` variable to the
-desired version. The run:
+Production builds are multi-platform (`linux/amd64` + `linux/arm64`) and push to a
+container registry. The image tag comes from `PROD_OPEN_WEBUI_VERSION` in `Taskfile.yml` —
+update it before building.
+
+Two registries are supported:
 
 ```shell
-task prod:build
+task prod:build            # itkdev/openwebui on Docker Hub (full patch set: base + Aarhus)
+task prod:build:aarhusai   # ghcr.io/os2ai/open-webui (base patches only)
 ```

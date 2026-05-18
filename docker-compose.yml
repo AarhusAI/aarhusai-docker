@@ -10,9 +10,6 @@ services:
     build:
       dockerfile: Dockerfile
       context: open-webui
-      platforms:
-        - "linux/amd64"
-        #- "linux/arm64"
       args:
         USE_CUDA: false
         USE_OLLAMA: false
@@ -105,7 +102,7 @@ services:
       OLLAMA_BASE_URL: 'http://localhost:11434'
       # Enable OpenAI.
       ENABLE_OPENAI_API: true
-      OPENAI_API_BASE_URLS: ${OPENAI_API_BASE_URLS:-http://litellm:4000/v1}
+      OPENAI_API_BASE_URLS: ${OPENAI_API_BASE_URLS:-https://litellm.itkdev.dk/v1}
       OPENAI_API_KEYS: ${OPENAI_API_KEYS:-sk-1234}
       # Disable direct connections (do not allow users to connect to new servers)
       ENABLE_DIRECT_CONNECTIONS: ${ENABLE_DIRECT_CONNECTIONS:-false}
@@ -597,4 +594,3 @@ services:
       RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
       RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
       RERANKER_API_KEY: ${RERANKER_API_KEY:-}
-

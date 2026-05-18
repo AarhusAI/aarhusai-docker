@@ -1,0 +1,12 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  openwebui:
+    build:
+      platforms:
+        - "linux/arm64"
