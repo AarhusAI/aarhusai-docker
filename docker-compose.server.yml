@@ -460,8 +460,6 @@ services:
     image: ghcr.io/aarhusai/search-agent:latest
     command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001" ]
     restart: unless-stopped
-    ports:
-      - '8001'
     networks:
       - app
     depends_on:
