@@ -664,6 +664,8 @@ services:
     environment:
       DEBUG: 'True'
       API_KEY: ${INGESTION_API_KEY:?}
+      # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
       TIKA_URL: http://tika:9998
