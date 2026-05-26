@@ -677,7 +677,8 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-400}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
       CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
-      TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
+      TOKENIZER_MODEL: ${TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
+      TOKENIZER_REVISION: ${TOKENIZER_REVISION:-3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3}
       # Container user has no writable $HOME, so point HF + fastembed caches
       # under /cache, which is backed by a named volume so models (BM42
       # sparse ~80 MB, e5-large tokenizer ~5 MB) survive `docker compose

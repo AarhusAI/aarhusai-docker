@@ -623,6 +623,7 @@ services:
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
+      TOKENIZER_REVISION: ${TOKENIZER_REVISION:-}
       # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
       # Note: RAG_EMBEDDING_OPENAI_* point at the embedding service (embed.itkdev.dk),
       # NOT RAG_OPENAI_* which is the LLM proxy. Mixing them sends an LLM key to the
