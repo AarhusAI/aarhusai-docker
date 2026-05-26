@@ -7,8 +7,25 @@ https://docs.openwebui.com/
 Use the task file to install it.
 
 ```shell
-task git:clone
 task install
+```
+
+`task install` clones the required repositories on first run (when their
+directories don't already exist) and then applies patches and starts the
+stack. On subsequent runs the existing checkouts are reused.
+
+The repositories cloned are:
+
+- [open-webui](https://github.com/AarhusAI/open-webui) — into `open-webui/`, checked out at `OPEN_WEBUI_VERSION`
+- [ingestion-service](https://github.com/AarhusAI/ingestion-service) — into `ingestion-service/`, checked out at `INGESTION_SERVICE_VERSION`
+- [retrieval-agent](https://github.com/AarhusAI/retrieval-agent) — into `retrieval-agent/`, checked out at `RETRIEVAL_AGENT_VERSION`
+
+The individual clone steps are also available as standalone tasks:
+
+```shell
+task git:clone              # open-webui
+task git:clone:ingestion    # ingestion-service
+task git:clone:retrieval    # retrieval-agent
 ```
 
 ### Task install

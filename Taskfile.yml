@@ -8,10 +8,16 @@ vars:
   BASE_URL: '{{.TASK_BASE_URL | default .COMPOSE_SERVER_DOMAIN | default .COMPOSE_DOMAIN }}'
   DOCKER_COMPOSE: '{{ .TASK_DOCKER_COMPOSE | default "itkdev-docker-compose" }}'
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
+  INGESTION_SERVICE_REPO: 'https://github.com/AarhusAI/ingestion-service.git'
+  RETRIEVAL_AGENT_REPO: 'https://github.com/AarhusAI/retrieval-agent.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
   PROD_OPEN_WEBUI_VERSION: 'v0.8.12-5'
   TARGET_DIR: 'open-webui'
+  INGESTION_SERVICE_VERSION: 'develop'
+  INGESTION_SERVICE_DIR: 'ingestion-service'
+  RETRIEVAL_AGENT_VERSION: 'feature/external-ingest-rag'
+  RETRIEVAL_AGENT_DIR: 'retrieval-agent'
   PATCHES:
     - name: 'Pinned info banner'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/32.diff'
@@ -97,6 +103,20 @@ tasks:
       - cd "{{ .TARGET_DIR }}" && git checkout {{ .OPEN_WEBUI_VERSION }}
     silent: true
 
+  git:clone:ingestion:
+    desc: "Clone ingestion-service"
+    cmds:
+      - git clone {{ .INGESTION_SERVICE_REPO }} {{ .INGESTION_SERVICE_DIR }}
+      - cd "{{ .INGESTION_SERVICE_DIR }}" && git checkout {{ .INGESTION_SERVICE_VERSION }}
+    silent: true
+
+  git:clone:retrieval:
+    desc: "Clone retrieval-agent"
+    cmds:
+      - git clone {{ .RETRIEVAL_AGENT_REPO }} {{ .RETRIEVAL_AGENT_DIR }}
+      - cd "{{ .RETRIEVAL_AGENT_DIR }}" && git checkout {{ .RETRIEVAL_AGENT_VERSION }}
+    silent: true
+
   git:checkout:dev:
     desc: "Checkout open-webui dev branch"
     dir: "{{ .TARGET_DIR }}"
@@ -154,8 +174,11 @@ tasks:
           echo "Install cancelled."
           exit 1
         fi
+      - if [ ! -d "{{ .TARGET_DIR }}" ]; then task git:clone; fi
       - task git:reset
       - task patch
+      - if [ ! -d "{{ .INGESTION_SERVICE_DIR }}" ]; then task git:clone:ingestion; fi
+      - if [ ! -d "{{ .RETRIEVAL_AGENT_DIR }}" ]; then task git:clone:retrieval; fi
       - task copy:config
       - task compose -- pull
       - task compose -- up --detach --force-recreate
