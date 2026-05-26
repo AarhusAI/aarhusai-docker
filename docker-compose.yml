@@ -420,36 +420,6 @@ services:
       retries: 3
       start_period: 30s
 
-  doc-ingestion:
-    image: itkdev/doc-ingestion-route:latest
-    platform: linux/amd64
-    networks:
-      - app
-    ports:
-      - "8000"
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    environment:
-      APP_NAME: Document Ingestion Router
-      API_KEY: ${DOC_INGESTION_TOKEN:-123456789}
-      TIKA_BASE_URL: http://tika:9998
-      TIKA_USER: ''
-      TIKA_PASSWORD: ''
-      # HTTP Client connection pool settings to tika
-      HTTP_MAX_CONNECTIONS: 100
-      HTTP_MAX_KEEPALIVE_CONNECTIONS: 20
-      HTTP_KEEPALIVE_EXPIRY: 30.0
-      HTTP_ENABLE_HTTP2: true
-      # HTTP Client timeout settings (in seconds) to tika
-      HTTP_TIMEOUT_CONNECT: 10.0
-      HTTP_TIMEOUT_READ: 900.0
-      HTTP_TIMEOUT_WRITE: 60.0
-      HTTP_TIMEOUT_POOL: 10.0
-
   minio-init:
     image: minio/mc
     depends_on:
@@ -517,8 +487,11 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   search-agent:
-    image: ghcr.io/aarhusai/search-agent:latest
-    command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    build:
+      dockerfile: Dockerfile
+      context: ./search-agent
+      target: dev
+    command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
     ports:
       - '8001'
     networks:
@@ -561,6 +534,8 @@ services:
       SEARCH_AGENT_CACHE_SEARXNG_TTL: ${SEARCH_AGENT_CACHE_SEARXNG_TTL:-300}
       SEARCH_AGENT_CACHE_PLANNER_TTL: ${SEARCH_AGENT_CACHE_PLANNER_TTL:-21600}
       SEARCH_AGENT_DEBUG: ${SEARCH_AGENT_DEBUG:-false}
+    volumes:
+      - ./search-agent/:/app
 
   searxng:
     image: ghcr.io/searxng/searxng:${SEARXNG_TAG:-2026.3.13-3c1f68c59}

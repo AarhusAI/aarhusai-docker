@@ -7,3 +7,5 @@ guardrails/__pycache__/
 # Development
 ingestion-service/
 retrieval-agent/
+search-agent/
+

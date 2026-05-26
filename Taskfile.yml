@@ -10,6 +10,7 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   INGESTION_SERVICE_REPO: 'https://github.com/AarhusAI/ingestion-service.git'
   RETRIEVAL_AGENT_REPO: 'https://github.com/AarhusAI/retrieval-agent.git'
+  SEARCH_AGENT_REPO: 'https://github.com/AarhusAI/search-agent.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.8.10'
   OPEN_WEBUI_VERSION: 'v0.8.12'
   PROD_OPEN_WEBUI_VERSION: 'v0.8.12-5'
@@ -18,6 +19,8 @@ vars:
   INGESTION_SERVICE_DIR: 'ingestion-service'
   RETRIEVAL_AGENT_VERSION: 'feature/external-ingest-rag'
   RETRIEVAL_AGENT_DIR: 'retrieval-agent'
+  SEARCH_AGENT_VERSION: 'develop'
+  SEARCH_AGENT_DIR: 'search-agent'
   PATCHES:
     - name: 'Pinned info banner'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/32.diff'
@@ -117,6 +120,13 @@ tasks:
       - cd "{{ .RETRIEVAL_AGENT_DIR }}" && git checkout {{ .RETRIEVAL_AGENT_VERSION }}
     silent: true
 
+  git:clone:search:
+    desc: "Clone search-agent"
+    cmds:
+      - git clone {{ .SEARCH_AGENT_REPO }} {{ .SEARCH_AGENT_DIR }}
+      - cd "{{ .SEARCH_AGENT_DIR }}" && git checkout {{ .SEARCH_AGENT_VERSION }}
+    silent: true
+
   git:checkout:dev:
     desc: "Checkout open-webui dev branch"
     dir: "{{ .TARGET_DIR }}"
@@ -179,6 +189,7 @@ tasks:
       - task patch
       - if [ ! -d "{{ .INGESTION_SERVICE_DIR }}" ]; then task git:clone:ingestion; fi
       - if [ ! -d "{{ .RETRIEVAL_AGENT_DIR }}" ]; then task git:clone:retrieval; fi
+      - if [ ! -d "{{ .SEARCH_AGENT_DIR }}" ]; then task git:clone:search; fi
       - task copy:config
       - task compose -- pull
       - task compose -- up --detach --force-recreate
