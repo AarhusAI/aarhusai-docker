@@ -651,6 +651,10 @@ services:
       S3_ENDPOINT_URL: http://minio:9000
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # Pinned to Open WebUI's S3_BUCKET_NAME so the ingestion service can only
+      # fetch from the bucket Open WebUI actually stores files in. Without this
+      # a stolen INGESTION_API_KEY could pull arbitrary objects.
+      S3_ALLOWED_BUCKETS: ${S3_BUCKET_NAME:-openwebui}
       # Container user has no writable $HOME, so point HF + fastembed caches
       # under /cache, which is backed by a named volume so models (BM42
       # sparse ~80 MB, e5-large tokenizer ~5 MB) survive `docker compose
