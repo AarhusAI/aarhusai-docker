@@ -17,7 +17,7 @@ vars:
   TARGET_DIR: 'open-webui'
   INGESTION_SERVICE_VERSION: 'develop'
   INGESTION_SERVICE_DIR: 'ingestion-service'
-  RETRIEVAL_AGENT_VERSION: 'feature/external-ingest-rag'
+  RETRIEVAL_AGENT_VERSION: 'develop'
   RETRIEVAL_AGENT_DIR: 'retrieval-agent'
   SEARCH_AGENT_VERSION: 'develop'
   SEARCH_AGENT_DIR: 'search-agent'
