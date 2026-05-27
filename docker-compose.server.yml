@@ -310,7 +310,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      tika:
+      kreuzberg:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -360,55 +360,7 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - .docker/data/postgres:/var/lib/postgresql/data 
-
-  doc-ingestion:
-    image: itkdev/doc-ingestion-route:latest
-    restart: unless-stopped
-    networks:
-      - app
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    environment:
-      APP_NAME: Document Ingestion Router
-      API_KEY: ${DOC_INGESTION_TOKEN:-123456789}
-      TIKA_BASE_URL: ${DOC_TIKA_BASE_URL:-http://tika:9998}
-      TIKA_USER: ${DOC_TIKA_USER:-''}
-      TIKA_PASSWORD: ${DOC_TIKA_PASSWORD:-''}
-      # HTTP Client connection pool settings to tika
-      HTTP_MAX_CONNECTIONS: 100
-      HTTP_MAX_KEEPALIVE_CONNECTIONS: 20
-      HTTP_KEEPALIVE_EXPIRY: 30.0
-      HTTP_ENABLE_HTTP2: true
-      # HTTP Client timeout settings (in seconds) to tika
-      HTTP_TIMEOUT_CONNECT: 10.0
-      HTTP_TIMEOUT_READ: 900.0
-      HTTP_TIMEOUT_WRITE: 60.0
-      HTTP_TIMEOUT_POOL: 10.0
-
-  tika:
-    image: itkdev/tika:3.2.3
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: [ "CMD", "wget", "-O", "/dev/null", "-q", "http://127.0.0.1:9998/" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-    networks:
-      - app
+      - .docker/data/postgres:/var/lib/postgresql/data
 
   kreuzberg:
     image: goldziher/kreuzberg:4.0.7-core
@@ -600,7 +552,7 @@ services:
     depends_on:
       qdrant:
         condition: service_started
-      tika:
+      kreuzberg:
         condition: service_started
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -615,7 +567,6 @@ services:
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
-      TIKA_URL: http://tika:9998
       KREUZBERG_URL: http://kreuzberg:8000
       CHUNK_SIZE: ${CHUNK_SIZE:-500}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}

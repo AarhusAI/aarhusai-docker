@@ -320,7 +320,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      tika:
+      kreuzberg:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -384,20 +384,6 @@ services:
     #command: npm run build:watch
     volumes:
       - ./open-webui:/app
-
-  tika:
-    image: itkdev/tika:3.2.3
-    platform: linux/amd64
-    networks:
-      - app
-    ports:
-      - "9998"
-    healthcheck:
-      test: [ "CMD", "wget", "-O", "/dev/null", "-q", "http://127.0.0.1:9998/" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
 
   kreuzberg:
     image: goldziher/kreuzberg:4.0.7-core
@@ -625,7 +611,7 @@ services:
     depends_on:
       qdrant:
         condition: service_started
-      tika:
+      kreuzberg:
         condition: service_started
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -640,7 +626,6 @@ services:
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
-      TIKA_URL: http://tika:9998
       KREUZBERG_URL: http://kreuzberg:8000
       # Chunking — token mode measures with the embedding model's HF
       # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
