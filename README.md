@@ -11,13 +11,30 @@ configuration, and a patch system applied on top of tagged upstream releases.
 ## Install
 
 ```shell
-task git:clone
 task install
 ```
 
-`task install` does the full dance: resets the `open-webui` checkout to the pinned
-`OPEN_WEBUI_VERSION`, applies all patches (base + Aarhus), copies config from the example
-files, pulls containers, brings them up, and builds the frontend.
+`task install` clones the required repositories on first run (when their
+directories don't already exist) and then applies patches and starts the
+stack. On subsequent runs the existing checkouts are reused.
+
+The repositories cloned are:
+
+- [open-webui](https://github.com/AarhusAI/open-webui) — into `open-webui/`, checked out at `OPEN_WEBUI_VERSION`
+- [ingestion-service](https://github.com/AarhusAI/ingestion-service) — into `ingestion-service/`, checked out at `INGESTION_SERVICE_VERSION`
+- [retrieval-agent](https://github.com/AarhusAI/retrieval-agent) — into `retrieval-agent/`, checked out at `RETRIEVAL_AGENT_VERSION`
+- [search-agent](https://github.com/AarhusAI/search-agent) — into `search-agent/`, checked out at `SEARCH_AGENT_VERSION`
+
+The individual clone steps are also available as standalone tasks:
+
+```shell
+task git:clone              # open-webui
+task git:clone:ingestion    # ingestion-service
+task git:clone:retrieval    # retrieval-agent
+task git:clone:search       # search-agent
+```
+
+### Task install
 
 ### ARM hosts (Apple Silicon, ARM Linux)
 

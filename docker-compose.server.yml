@@ -90,6 +90,11 @@ services:
       RAG_EXTERNAL_BYPASS_QUERY_GENERATION: "${RAG_EXTERNAL_BYPASS_QUERY_GENERATION:-true}"
       RAG_EXTERNAL_MESSAGE_COUNT: "${RAG_EXTERNAL_MESSAGE_COUNT:-2}"
       RAG_EXTERNAL_USER_MESSAGES_ONLY: "${RAG_EXTERNAL_USER_MESSAGES_ONLY:-true}"
+      # External ingestion (Phase 1: delegation hook only; service comes in Phase 2)
+      EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
+      EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
+      EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
+      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-300}"
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
@@ -405,6 +410,27 @@ services:
     networks:
       - app
 
+  kreuzberg:
+    image: goldziher/kreuzberg:4.0.7-core
+    command: [ "serve", "-H", "0.0.0.0", "-p", "8000" ]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app
+
   minio-init:
     image: minio/mc
     depends_on:
@@ -520,7 +546,6 @@ services:
     restart: unless-stopped
     networks:
       - app
-      - frontend
     depends_on:
       qdrant:
         condition: service_started
@@ -534,11 +559,15 @@ services:
       DEBUG: 'False'
       ENABLE_AGENTIC_RAG: ${ENABLE_AGENTIC_RAG:-true}
       AGENT_MODEL: ${RAG_EXTERNAL_AGENT_MODEL:-AarhusAI-default}
-      AGENT_API_BASE_URL: ${OPENAI_API_BASE_URL:?}
-      AGENT_API_KEY: ${OPENAI_API_KEY:?}
+      AGENT_API_BASE_URL: ${AGENT_API_BASE_URL:?}
+      AGENT_API_KEY: ${AGENT_API_KEY:?}
       AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-3}
       INITIAL_RETRIEVAL_MULTIPLIER: ${INITIAL_RETRIEVAL_MULTIPLIER:-3}
       API_KEY: ${RAG_EXTERNAL_RETRIEVAL_API_KEY:?}
+      AGENT_FETCH_K: ${AGENT_FETCH_K:-20}
+      AGENT_PREVIEW_K: ${AGENT_PREVIEW_K:-5}
+      AGENT_CONVERSATION_HISTORY_MESSAGES: ${AGENT_CONVERSATION_HISTORY_MESSAGES:-4}
+      AGENT_TOOL_PREVIEW_CHARS: ${AGENT_TOOL_PREVIEW_CHARS:-200}
       # Qdrant settings.
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
@@ -546,8 +575,8 @@ services:
       QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
       # Embedding settings (matches the ones used by ingestion)
       EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      EMBEDDING_API_BASE_URL: ${RAG_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
+      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
       EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
 
       ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-true}
@@ -557,3 +586,89 @@ services:
       RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
       RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
       RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      HF_HOME: /cache/hf
+      FASTEMBED_CACHE_PATH: /cache/fastembed
+    volumes:
+      - retrieval_model_cache:/cache
+
+  ingestion:
+    image: ghcr.io/aarhusai/ingestion-service:latest
+    command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+    networks:
+      - app
+    depends_on:
+      qdrant:
+        condition: service_started
+      tika:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      DEBUG: 'False'
+      API_KEY: ${INGESTION_API_KEY:?}
+      # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
+      # Extraction
+      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
+      TIKA_URL: http://tika:9998
+      KREUZBERG_URL: http://kreuzberg:8000
+      CHUNK_SIZE: ${CHUNK_SIZE:-500}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
+      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
+      TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
+      TOKENIZER_REVISION: ${TOKENIZER_REVISION:-}
+      # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
+      # Note: RAG_EMBEDDING_OPENAI_* point at the embedding service (embed.itkdev.dk),
+      # NOT RAG_OPENAI_* which is the LLM proxy. Mixing them sends an LLM key to the
+      # embedder and trips a 401 from the upstream gateway.
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai-compat}
+      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
+      EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      EMBEDDING_PREFIX_DOC: "${EMBEDDING_PREFIX_DOC:-passage: }"
+      EMBEDDING_PREFIX_QUERY: "${EMBEDDING_PREFIX_QUERY:-query: }"
+      # Sparse embedder — required so Haystack writes named vectors
+      # (text-dense + text-sparse) the retrieval agent expects. Also
+      # unlocks server-side RRF hybrid retrieval. The fastembed BM42
+      # model (~80MB) lives in the ingestion_model_cache named volume
+      # and is loaded once per `docker compose up` via the pipeline
+      # warm-up in init_pipeline().
+      ENABLE_SPARSE_EMBEDDINGS: ${ENABLE_SPARSE_EMBEDDINGS:-true}
+      SPARSE_EMBEDDING_PROVIDER: ${SPARSE_EMBEDDING_PROVIDER:-fastembed}
+      SPARSE_EMBEDDING_MODEL: ${SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
+      # Qdrant — fresh collection, separate from Open WebUI's legacy multitenancy collections
+      QDRANT_URI: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
+      QDRANT_INDEX: ${QDRANT_INDEX:-ingestion_files}
+      # S3 (the dev stack's MinIO; ingestion service is storage-agnostic at the wire level)
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # Pinned to Open WebUI's S3_BUCKET_NAME so the ingestion service can only
+      # fetch from the bucket Open WebUI actually stores files in. Without this
+      # a stolen INGESTION_API_KEY could pull arbitrary objects.
+      S3_ALLOWED_BUCKETS: ${S3_BUCKET_NAME:-openwebui}
+      # Container user has no writable $HOME, so point HF + fastembed caches
+      # under /cache, which is backed by a named volume so models (BM42
+      # sparse ~80 MB, e5-large tokenizer ~5 MB) survive `docker compose
+      # restart` instead of re-downloading every cold start. The pipeline
+      # warm-up in init_pipeline() touches both at lifespan startup so the
+      # first user-facing ingest never waits on HuggingFace.
+      HF_HOME: /cache/hf
+      FASTEMBED_CACHE_PATH: /cache/fastembed
+    volumes:
+      - ingestion_model_cache:/cache
+
+volumes:
+  # Named volumes for embedding-model caches. Survive `docker compose restart`
+  # so the ~80 MB BM42 sparse model and e5-large tokenizer download only on
+  # first start per host. `docker compose down -v` wipes them; that's the
+  # operator's choice for a full reset.
+  ingestion_model_cache:
+  retrieval_model_cache:
