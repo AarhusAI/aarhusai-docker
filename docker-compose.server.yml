@@ -498,6 +498,9 @@ services:
     restart: unless-stopped
     networks:
       - app
+      - frontend
+    ports:
+      - "8000"
     depends_on:
       qdrant:
         condition: service_started
@@ -508,36 +511,40 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      DEBUG: 'False'
-      ENABLE_AGENTIC_RAG: ${ENABLE_AGENTIC_RAG:-true}
-      AGENT_MODEL: ${RAG_EXTERNAL_AGENT_MODEL:-AarhusAI-default}
-      AGENT_API_BASE_URL: ${AGENT_API_BASE_URL:?}
-      AGENT_API_KEY: ${AGENT_API_KEY:?}
-      AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-3}
-      INITIAL_RETRIEVAL_MULTIPLIER: ${INITIAL_RETRIEVAL_MULTIPLIER:-3}
-      API_KEY: ${RAG_EXTERNAL_RETRIEVAL_API_KEY:?}
-      AGENT_FETCH_K: ${AGENT_FETCH_K:-20}
-      AGENT_PREVIEW_K: ${AGENT_PREVIEW_K:-5}
-      AGENT_CONVERSATION_HISTORY_MESSAGES: ${AGENT_CONVERSATION_HISTORY_MESSAGES:-4}
-      AGENT_TOOL_PREVIEW_CHARS: ${AGENT_TOOL_PREVIEW_CHARS:-200}
+      DEBUG: 'True'
+      API_KEY: ${RETRIEVAL_API_KEY:?}
+      ENABLE_AGENTIC_RAG: ${RETRIEVAL_ENABLE_AGENTIC_RAG:-true}
+      AGENT_MODEL: ${RETRIEVAL_AGENT_MODEL:-AarhusAI-default}
+      AGENT_API_BASE_URL: ${RETRIEVAL_AGENT_API_BASE_URL:?}
+      AGENT_API_KEY: ${RETRIEVAL_AGENT_API_KEY:?}
+      AGENT_MAX_ITERATIONS: ${RETRIEVAL_AGENT_MAX_ITERATIONS:-3}
+      INITIAL_RETRIEVAL_MULTIPLIER: ${RETRIEVAL_INITIAL_RETRIEVAL_MULTIPLIER:-3}
+      AGENT_FETCH_K: ${RETRIEVAL_AGENT_FETCH_K:-20}
+      AGENT_PREVIEW_K: ${RETRIEVAL_AGENT_PREVIEW_K:-5}
+      AGENT_CONVERSATION_HISTORY_MESSAGES: ${RETRIEVAL_AGENT_CONVERSATION_HISTORY_MESSAGES:-4}
+      AGENT_TOOL_PREVIEW_CHARS: ${RETRIEVAL_AGENT_TOOL_PREVIEW_CHARS:-200}
       # Qdrant settings.
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
       QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-open-webui}
       QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
       # Embedding settings (matches the ones used by ingestion)
-      EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
-      EMBEDDING_QUERY_PREFIX: ${EMBEDDING_QUERY_PREFIX:-'query:'}
-
-      ENABLE_HYBRID_SEARCH: ${ENABLE_HYBRID_SEARCH:-true}
-      HYBRID_BM25_WEIGHT: ${HYBRID_BM25_WEIGHT:-0.3}
-
-      ENABLE_RERANKING: ${ENABLE_RERANKING:-false}
-      RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
-      RERANKER_API_BASE_URL: ${RERANKER_API_BASE_URL:-}
-      RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      EMBEDDING_MODEL: ${RETRIEVAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_API_BASE_URL: ${RETRIEVAL_EMBEDDING_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${RETRIEVAL_EMBEDDING_API_KEY:-123456789}
+      EMBEDDING_QUERY_PREFIX: ${ERETRIEVAL_MBEDDING_QUERY_PREFIX:-'query:'}
+      # Hybrid BM25 settings.
+      ENABLE_HYBRID_SEARCH: ${RETRIEVAL_ENABLE_HYBRID_SEARCH:-true}
+      HYBRID_BM25_WEIGHT: ${RETRIEVAL_HYBRID_BM25_WEIGHT:-0.3}
+      # Reranking settings.
+      ENABLE_RERANKING: ${RETRIEVAL_ENABLE_RERANKING:-false}
+      RERANKER_MODEL: ${RETRIEVAL_RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+      RERANKER_API_BASE_URL: ${RETRIEVAL_RERANKER_API_BASE_URL:-}
+      RERANKER_API_KEY: ${RETRIEVAL_RERANKER_API_KEY:-}
+      # Container user has no writable $HOME, so point HF + fastembed
+      # caches under /cache, which is backed by a named volume so the
+      # ~80 MB BM42 sparse model survives `docker compose restart`
+      # instead of re-downloading every cold start.
       HF_HOME: /cache/hf
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
@@ -549,6 +556,9 @@ services:
     restart: unless-stopped
     networks:
       - app
+      - frontend
+    ports:
+      - "8000"
     depends_on:
       qdrant:
         condition: service_started
@@ -561,50 +571,54 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      DEBUG: 'False'
+      DEBUG: 'True'
       API_KEY: ${INGESTION_API_KEY:?}
       # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
       # Extraction
       EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
       KREUZBERG_URL: http://kreuzberg:8000
-      CHUNK_SIZE: ${CHUNK_SIZE:-500}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
-      CHUNK_SPLIT_BY: ${CHUNK_SPLIT_BY:-markdown}
-      TOKENIZER_MODEL: ${TOKENIZER_MODEL:-}
-      TOKENIZER_REVISION: ${TOKENIZER_REVISION:-}
+      # Chunking — token mode measures with the embedding model's HF
+      # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
+      # so chunks respect the 512-token cap on e5-large. word/sentence/passage
+      # delegate to Haystack's built-in DocumentSplitter.
+      CHUNK_SIZE: ${CHUNK_SIZE:-400}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      CHUNK_SPLIT_BY: ${INGESTION_CHUNK_SPLIT_BY:-markdown}
+      TOKENIZER_MODEL: ${INGESTION_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
+      TOKENIZER_REVISION: ${INGESTION_TOKENIZER_REVISION:-3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3}
       # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
       # Note: RAG_EMBEDDING_OPENAI_* point at the embedding service (embed.itkdev.dk),
       # NOT RAG_OPENAI_* which is the LLM proxy. Mixing them sends an LLM key to the
       # embedder and trips a 401 from the upstream gateway.
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai-compat}
-      EMBEDDING_API_BASE_URL: ${RAG_EMBEDDING_OPENAI_API_BASE_URL:-https://embed.itkdev.dk/v1}
-      EMBEDDING_API_KEY: ${RAG_EMBEDDING_OPENAI_API_KEY:-123456789}
-      EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
-      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
-      EMBEDDING_PREFIX_DOC: "${EMBEDDING_PREFIX_DOC:-passage: }"
-      EMBEDDING_PREFIX_QUERY: "${EMBEDDING_PREFIX_QUERY:-query: }"
+      EMBEDDING_PROVIDER: ${INGESTION_EMBEDDING_PROVIDER:-openai-compat}
+      EMBEDDING_API_BASE_URL: ${INGESTION_EMBEDDING_API_BASE_URL:-https://embed.itkdev.dk/v1}
+      EMBEDDING_API_KEY: ${INGESTION_EMBEDDING_API_KEY:-123456789}
+      EMBEDDING_MODEL: ${INGESTION_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_DIM: ${INGESTION_EMBEDDING_DIM:-1024}
+      EMBEDDING_PREFIX_DOC: "${INGESTION_EMBEDDING_PREFIX_DOC:-passage: }"
+      EMBEDDING_PREFIX_QUERY: "${INGESTION_EMBEDDING_PREFIX_QUERY:-query: }"
       # Sparse embedder — required so Haystack writes named vectors
       # (text-dense + text-sparse) the retrieval agent expects. Also
       # unlocks server-side RRF hybrid retrieval. The fastembed BM42
       # model (~80MB) lives in the ingestion_model_cache named volume
       # and is loaded once per `docker compose up` via the pipeline
       # warm-up in init_pipeline().
-      ENABLE_SPARSE_EMBEDDINGS: ${ENABLE_SPARSE_EMBEDDINGS:-true}
-      SPARSE_EMBEDDING_PROVIDER: ${SPARSE_EMBEDDING_PROVIDER:-fastembed}
-      SPARSE_EMBEDDING_MODEL: ${SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
+      ENABLE_SPARSE_EMBEDDINGS: ${INGESTION_ENABLE_SPARSE_EMBEDDINGS:-true}
+      SPARSE_EMBEDDING_PROVIDER: ${INGESTION_SPARSE_EMBEDDING_PROVIDER:-fastembed}
+      SPARSE_EMBEDDING_MODEL: ${INGESTION_SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
       # Qdrant — fresh collection, separate from Open WebUI's legacy multitenancy collections
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
       QDRANT_INDEX: ${QDRANT_INDEX:-ingestion_files}
       # S3 (the dev stack's MinIO; ingestion service is storage-agnostic at the wire level)
-      S3_ENDPOINT_URL: http://minio:9000
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ENDPOINT_URL: ${INGESTION_S3_URL:-http://minio:9000}
+      S3_ACCESS_KEY_ID: ${INGESTION_S3_ROOT_USER:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${INGESTION_S3_ROOT_PASSWORD:-minioadmin}
       # Pinned to Open WebUI's S3_BUCKET_NAME so the ingestion service can only
       # fetch from the bucket Open WebUI actually stores files in. Without this
       # a stolen INGESTION_API_KEY could pull arbitrary objects.
-      S3_ALLOWED_BUCKETS: ${S3_BUCKET_NAME:-openwebui}
+      S3_ALLOWED_BUCKETS: ${INGESTION_S3_BUCKET_NAME:-openwebui}
       # Container user has no writable $HOME, so point HF + fastembed caches
       # under /cache, which is backed by a named volume so models (BM42
       # sparse ~80 MB, e5-large tokenizer ~5 MB) survive `docker compose
@@ -618,8 +632,8 @@ services:
 
 volumes:
   # Named volumes for embedding-model caches. Survive `docker compose restart`
-  # so the ~80 MB BM42 sparse model and e5-large tokenizer download only on
-  # first start per host. `docker compose down -v` wipes them; that's the
+  # so the ~80 MB BM42 sparse model and the e5-large tokenizer download only
+  # on first start per host. `docker compose down -v` wipes them; that's the
   # operator's choice for a full reset.
   ingestion_model_cache:
   retrieval_model_cache:
