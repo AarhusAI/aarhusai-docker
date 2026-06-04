@@ -399,6 +399,23 @@ services:
       retries: 3
       start_period: 30s
 
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    networks:
+      - app
+    ports:
+      - "3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-sf", "http://localhost:3000/health" ]
+      start_period: 20s
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+
   minio-init:
     image: minio/mc
     depends_on:
@@ -619,10 +636,32 @@ services:
       DEBUG: 'True'
       API_KEY: ${INGESTION_API_KEY:?}
       # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
-      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
+      MAX_UPLOAD_BYTES: ${INGESTION_MAX_UPLOAD_BYTES:-104857600}
       # Extraction
-      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
+      EXTRACTION_ENGINE: ${INGESTION_EXTRACTION_ENGINE:-auto}
       KREUZBERG_URL: http://kreuzberg:8000
+      # Content-based routing (EXTRACTION_ENGINE=auto)
+      EXTRACTION_ROUTER_DEFAULT: ${INGESTION_EXTRACTION_ROUTER_DEFAULT:-kreuzberg}
+      EXTRACTION_ROUTER_DIAGRAM_ENGINE: ${INGESTION_EXTRACTION_ROUTER_DIAGRAM_ENGINE:-hybrid-diagram}
+      EXTRACTION_ROUTER_DIAGRAM_PROFILE: ${INGESTION_EXTRACTION_ROUTER_DIAGRAM_PROFILE:-diagram-topology}
+      EXTRACTION_ROUTER_MIN_TEXTBOXES: ${INGESTION_EXTRACTION_ROUTER_MIN_TEXTBOXES:-20}
+      EXTRACTION_ROUTER_DRAWING_RATIO: ${INGESTION_EXTRACTION_ROUTER_DRAWING_RATIO:-2.0}
+      # Vision LLM extraction (vision-llm engine / auto diagram engine)
+      VISION_LLM_API_BASE_URL: ${INGESTION_VISION_LLM_API_BASE_URL:-}
+      VISION_LLM_API_KEY: ${INGESTION_VISION_LLM_API_KEY:-}
+      VISION_LLM_MODEL: ${INGESTION_VISION_LLM_MODEL:-AarhusAI-default-v2}
+      VISION_LLM_CONNECT_TIMEOUT: ${INGESTION_VISION_LLM_CONNECT_TIMEOUT:-5.0}
+      VISION_LLM_READ_TIMEOUT: ${INGESTION_VISION_LLM_READ_TIMEOUT:-180.0}
+      VISION_LLM_DPI: ${INGESTION_VISION_LLM_DPI:-150}
+      VISION_LLM_MAX_PAGES: ${INGESTION_VISION_LLM_MAX_PAGES:-20}
+      VISION_LLM_TLS_VERIFY: ${INGESTION_VISION_LLM_TLS_VERIFY:-true}
+      VISION_LLM_LANGUAGE_HINT: ${INGESTION_VISION_LLM_LANGUAGE_HINT:-Danish}
+      VISION_LLM_PROFILE: ${INGESTION_VISION_LLM_PROFILE:-general}
+      # Document rendering (Gotenberg sidecar)
+      GOTENBERG_URL: ${INGESTION_GOTENBERG_URL:-http://gotenberg:3000}
+      GOTENBERG_CONNECT_TIMEOUT: ${INGESTION_GOTENBERG_CONNECT_TIMEOUT:-5.0}
+      GOTENBERG_READ_TIMEOUT: ${INGESTION_GOTENBERG_READ_TIMEOUT:-120.0}
+      GOTENBERG_TLS_VERIFY: ${INGESTION_GOTENBERG_TLS_VERIFY:-false}
       # Chunking — token mode measures with the embedding model's HF
       # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
       # so chunks respect the 512-token cap on e5-large. word/sentence/passage
