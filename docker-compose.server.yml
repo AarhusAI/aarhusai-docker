@@ -493,7 +493,7 @@ services:
       - ./.docker/searxng/aarhus.py:/usr/local/searxng/searx/engines/aarhus.py
 
   retrieval:
-    image: ghcr.io/aarhusai/retrieval-agent:latest
+    image: ghcr.io/aarhusai/retrieval-agent:${RETRIEVAL_IMAGE_VERSION:-latest}
     command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
     networks:
@@ -549,7 +549,7 @@ services:
       - retrieval_model_cache:/cache
 
   ingestion:
-    image: ghcr.io/aarhusai/ingestion-service:latest
+    image: ghcr.io/aarhusai/ingestion-service:${INGESTION_IMAGE_VERSION:-latest}
     command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
     networks:
