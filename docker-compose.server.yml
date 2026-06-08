@@ -499,8 +499,6 @@ services:
     networks:
       - app
       - frontend
-    ports:
-      - "8000"
     depends_on:
       qdrant:
         condition: service_started
@@ -557,8 +555,6 @@ services:
     networks:
       - app
       - frontend
-    ports:
-      - "8000"
     depends_on:
       qdrant:
         condition: service_started
