@@ -9,3 +9,6 @@ ingestion-service/
 retrieval-agent/
 search-agent/
 
+# Database dumps (contain user data)
+*.sql
+
