@@ -12,3 +12,6 @@ search-agent/
 # Database dumps (contain user data)
 *.sql
 
+# S3/MinIO dumps (contain user files)
+/s3-dump/
+

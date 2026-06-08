@@ -274,6 +274,45 @@ tasks:
     silent: true
 
   ####
+  ## Storage (S3 / MinIO) helpers
+  ####
+  s3:dump:
+    desc: "Dump the Open WebUI S3/MinIO bucket to a local folder. Example: task s3:dump -- backup-dir (default: s3-dump)"
+    vars:
+      DUMP_DIR: '{{ .CLI_ARGS | default "s3-dump" }}'
+      BUCKET: 'openwebui'
+    cmds:
+      - mkdir -p {{ .DUMP_DIR }}
+      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh minio-init -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && mc mirror --overwrite --remove local/{{ .BUCKET }} /dump"'
+        platforms: [amd64]
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh minio-init -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && mc mirror --overwrite --remove local/{{ .BUCKET }} /dump"'
+        platforms: [arm64]
+      - echo "Dumped S3 bucket '{{ .BUCKET }}' to {{ .DUMP_DIR }}/ (use scp/rsync to move it)"
+    silent: true
+
+  s3:import:
+    desc: "Restore an S3/MinIO dump folder into the Open WebUI bucket (OVERWRITES current objects). Example: task s3:import -- backup-dir (default: s3-dump)"
+    vars:
+      DUMP_DIR: '{{ .CLI_ARGS | default "s3-dump" }}'
+      BUCKET: 'openwebui'
+    cmds:
+      - |
+        echo "This will OVERWRITE the local Open WebUI S3 bucket '{{ .BUCKET }}' with the contents of '{{ .DUMP_DIR }}/'."
+        echo "Objects in the bucket that are not in the dump will be DELETED."
+        echo ""
+        read -p "Are you sure you want to continue? (y/N): " confirm
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+          echo "Import cancelled."
+          exit 1
+        fi
+      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh minio-init -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && mc mb --ignore-existing local/{{ .BUCKET }} && mc mirror --overwrite --remove /dump local/{{ .BUCKET }}"'
+        platforms: [amd64]
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh minio-init -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && mc mb --ignore-existing local/{{ .BUCKET }} && mc mirror --overwrite --remove /dump local/{{ .BUCKET }}"'
+        platforms: [arm64]
+      - echo "Imported {{ .DUMP_DIR }}/ into the S3 bucket '{{ .BUCKET }}'"
+    silent: true
+
+  ####
   ## Update webui version helpers (<-- danger zone -->)
   ####
   patches:rebase:
