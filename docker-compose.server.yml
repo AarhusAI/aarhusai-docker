@@ -547,6 +547,18 @@ services:
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - retrieval_model_cache:/cache
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      # Expose only /metrics under the /retrieval prefix; strip the prefix so the
+      # backend (which serves /metrics at root) matches. Still Bearer-protected by
+      # the app's RETRIEVAL_API_KEY — Traefik adds no auth.
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval-metrics.rule=Host(`${COMPOSE_SERVER_DOMAIN}`) && PathPrefix(`/retrieval/metrics`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval-metrics.entrypoints=websecure"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval-metrics.service=${COMPOSE_PROJECT_NAME}-retrieval-metrics"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-retrieval-metrics.middlewares=${COMPOSE_PROJECT_NAME}-retrieval-strip"
+      - "traefik.http.middlewares.${COMPOSE_PROJECT_NAME}-retrieval-strip.stripprefix.prefixes=/retrieval"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-retrieval-metrics.loadbalancer.server.port=8000"
 
   ingestion:
     image: ghcr.io/aarhusai/ingestion-service:${INGESTION_IMAGE_VERSION:-latest}
@@ -625,6 +637,18 @@ services:
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ingestion_model_cache:/cache
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      # Expose only /metrics under the /ingestion prefix; strip the prefix so the
+      # backend (which serves /metrics at root) matches. Still Bearer-protected by
+      # the app's INGESTION_API_KEY — Traefik adds no auth.
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-ingestion-metrics.rule=Host(`${COMPOSE_SERVER_DOMAIN}`) && PathPrefix(`/ingestion/metrics`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-ingestion-metrics.entrypoints=websecure"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-ingestion-metrics.service=${COMPOSE_PROJECT_NAME}-ingestion-metrics"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-ingestion-metrics.middlewares=${COMPOSE_PROJECT_NAME}-ingestion-strip"
+      - "traefik.http.middlewares.${COMPOSE_PROJECT_NAME}-ingestion-strip.stripprefix.prefixes=/ingestion"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-ingestion-metrics.loadbalancer.server.port=8000"
 
 volumes:
   # Named volumes for embedding-model caches. Survive `docker compose restart`
