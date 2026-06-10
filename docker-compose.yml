@@ -570,6 +570,10 @@ services:
       start_period: 10s
     environment:
       DEBUG: 'True'
+      # Logging / observability
+      LOG_LEVEL: ${RETRIEVAL_LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${RETRIEVAL_LOG_FORMAT:-text}
+      METRICS_ENABLED: ${RETRIEVAL_METRICS_ENABLED:-true}
       API_KEY: ${RETRIEVAL_API_KEY:?}
       ENABLE_AGENTIC_RAG: ${RETRIEVAL_ENABLE_AGENTIC_RAG:-true}
       AGENT_MODEL: ${RETRIEVAL_AGENT_MODEL:-AarhusAI-default}
@@ -581,19 +585,35 @@ services:
       AGENT_PREVIEW_K: ${RETRIEVAL_AGENT_PREVIEW_K:-5}
       AGENT_CONVERSATION_HISTORY_MESSAGES: ${RETRIEVAL_AGENT_CONVERSATION_HISTORY_MESSAGES:-4}
       AGENT_TOOL_PREVIEW_CHARS: ${RETRIEVAL_AGENT_TOOL_PREVIEW_CHARS:-200}
-      # Qdrant settings.
+      AGENT_STRICT_TOOLS: ${RETRIEVAL_AGENT_STRICT_TOOLS:-true}
+      AGENT_TIMEOUT: ${RETRIEVAL_AGENT_TIMEOUT:-60}
+      AGENT_SYSTEM_PROMPT: ${RETRIEVAL_AGENT_SYSTEM_PROMPT:-}
+      # Query generation (linear pipeline). Empty template falls back to the built-in prompt.
+      ENABLE_QUERY_GENERATION: ${RETRIEVAL_ENABLE_QUERY_GENERATION:-true}
+      RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: ${RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE:-}
+      # Qdrant settings. Single physical collection written by the ingestion service
+      # (Phase 3); shares the QDRANT_INDEX host var with ingestion so both point at the
+      # same collection. The pre-Phase-3 QDRANT_COLLECTION_PREFIX/QDRANT_MULTITENANCY
+      # vocabulary was removed from the retrieval agent and is no longer read.
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
-      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-open-webui}
-      QDRANT_MULTITENANCY: ${QDRANT_MULTITENANCY:-true}
+      QDRANT_INDEX: ${QDRANT_INDEX:-ingestion_files}
       # Embedding settings (matches the ones used by ingestion)
       EMBEDDING_MODEL: ${RETRIEVAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
       EMBEDDING_API_BASE_URL: ${RETRIEVAL_EMBEDDING_API_BASE_URL:-https://embed.itkdev.dk/v1}
       EMBEDDING_API_KEY: ${RETRIEVAL_EMBEDDING_API_KEY:-123456789}
-      EMBEDDING_QUERY_PREFIX: ${ERETRIEVAL_MBEDDING_QUERY_PREFIX:-'query:'}
-      # Hybrid BM25 settings.
+      # Renamed from EMBEDDING_QUERY_PREFIX. Must match the prefix ingestion used at
+      # index time (e5 wants "query: " on queries, "passage: " on docs).
+      EMBEDDING_PREFIX_QUERY: "${RETRIEVAL_EMBEDDING_PREFIX_QUERY:-query: }"
+      # Hybrid search settings.
       ENABLE_HYBRID_SEARCH: ${RETRIEVAL_ENABLE_HYBRID_SEARCH:-true}
       HYBRID_BM25_WEIGHT: ${RETRIEVAL_HYBRID_BM25_WEIGHT:-0.3}
+      # Client-side BM25 fallback cache TTL (used only when the collection has no text-sparse vector).
+      BM25_CACHE_TTL_SECONDS: ${RETRIEVAL_BM25_CACHE_TTL_SECONDS:-300}
+      # Sparse query stage (native server-side hybrid). Model must match the sparse
+      # model the ingestion service indexed with. Set provider=none to force dense-only.
+      SPARSE_QUERY_PROVIDER: ${RETRIEVAL_SPARSE_QUERY_PROVIDER:-fastembed}
+      SPARSE_QUERY_MODEL: ${RETRIEVAL_SPARSE_QUERY_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
       # Reranking settings.
       ENABLE_RERANKING: ${RETRIEVAL_ENABLE_RERANKING:-false}
       RERANKER_MODEL: ${RETRIEVAL_RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
@@ -648,9 +668,19 @@ services:
       API_KEY: ${INGESTION_API_KEY:?}
       # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
       MAX_UPLOAD_BYTES: ${INGESTION_MAX_UPLOAD_BYTES:-104857600}
+      # Logging / observability
+      LOG_LEVEL: ${INGESTION_LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${INGESTION_LOG_FORMAT:-text}
+      METRICS_ENABLED: ${INGESTION_METRICS_ENABLED:-true}
+      ENABLE_INSPECTION_API: ${INGESTION_ENABLE_INSPECTION_API:-false}
       # Extraction
       EXTRACTION_ENGINE: ${INGESTION_EXTRACTION_ENGINE:-auto}
+      # Tika sidecar — only used when EXTRACTION_ENGINE=tika (no tika service in this stack by default).
+      TIKA_URL: ${INGESTION_TIKA_URL:-http://tika:9998}
       KREUZBERG_URL: http://kreuzberg:8000
+      KREUZBERG_CONNECT_TIMEOUT: ${INGESTION_KREUZBERG_CONNECT_TIMEOUT:-5.0}
+      KREUZBERG_READ_TIMEOUT: ${INGESTION_KREUZBERG_READ_TIMEOUT:-60.0}
+      KREUZBERG_TLS_VERIFY: ${INGESTION_KREUZBERG_TLS_VERIFY:-true}
       # Content-based routing (EXTRACTION_ENGINE=auto)
       EXTRACTION_ROUTER_DEFAULT: ${INGESTION_EXTRACTION_ROUTER_DEFAULT:-kreuzberg}
       EXTRACTION_ROUTER_DIAGRAM_ENGINE: ${INGESTION_EXTRACTION_ROUTER_DIAGRAM_ENGINE:-hybrid-diagram}
