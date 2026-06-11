@@ -569,9 +569,9 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      DEBUG: 'True'
       # Logging / observability
       LOG_LEVEL: ${RETRIEVAL_LOG_LEVEL:-INFO}
+      LOG_LEVEL_APP: ${RETRIEVAL_LOG_LEVEL_APP:-}
       LOG_FORMAT: ${RETRIEVAL_LOG_FORMAT:-text}
       METRICS_ENABLED: ${RETRIEVAL_METRICS_ENABLED:-true}
       API_KEY: ${RETRIEVAL_API_KEY:?}
@@ -664,12 +664,13 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      DEBUG: 'True'
       API_KEY: ${INGESTION_API_KEY:?}
+      DEBUG: ${INGESTION_DEBUG:-false}
       # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
       MAX_UPLOAD_BYTES: ${INGESTION_MAX_UPLOAD_BYTES:-104857600}
       # Logging / observability
       LOG_LEVEL: ${INGESTION_LOG_LEVEL:-INFO}
+      LOG_LEVEL_APP: ${INGESTION_LOG_LEVEL_APP:-}
       LOG_FORMAT: ${INGESTION_LOG_FORMAT:-text}
       METRICS_ENABLED: ${INGESTION_METRICS_ENABLED:-true}
       ENABLE_INSPECTION_API: ${INGESTION_ENABLE_INSPECTION_API:-false}
