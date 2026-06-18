@@ -379,6 +379,27 @@ services:
     networks:
       - app
 
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    command: [ "gotenberg", "--api-port=3000" ]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://127.0.0.1:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app
+
   minio-init:
     image: minio/mc
     depends_on:
@@ -588,6 +609,8 @@ services:
         condition: service_started
       kreuzberg:
         condition: service_started
+      gotenberg:
+        condition: service_started
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
@@ -606,7 +629,7 @@ services:
       METRICS_ENABLED: ${INGESTION_METRICS_ENABLED:-true}
       ENABLE_INSPECTION_API: ${INGESTION_ENABLE_INSPECTION_API:-false}
       # Extraction
-      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-kreuzberg}
+      EXTRACTION_ENGINE: ${EXTRACTION_ENGINE:-auto}
       # Tika sidecar — only used when EXTRACTION_ENGINE=tika (no tika service in this stack by default).
       TIKA_URL: ${INGESTION_TIKA_URL:-http://tika:9998}
       KREUZBERG_URL: http://kreuzberg:8000
@@ -631,8 +654,9 @@ services:
       VISION_LLM_TLS_VERIFY: ${INGESTION_VISION_LLM_TLS_VERIFY:-true}
       VISION_LLM_LANGUAGE_HINT: ${INGESTION_VISION_LLM_LANGUAGE_HINT:-Danish}
       VISION_LLM_PROFILE: ${INGESTION_VISION_LLM_PROFILE:-general}
-      # Document rendering (Gotenberg sidecar). No gotenberg service in this stack by
-      # default — add one before selecting an engine that renders office docs.
+      # Document rendering (Gotenberg sidecar). Runs as the `gotenberg` service in
+      # this stack; only dialed on the office-document leg of the vision-llm /
+      # hybrid-diagram / auto engines.
       GOTENBERG_URL: ${INGESTION_GOTENBERG_URL:-http://gotenberg:3000}
       GOTENBERG_CONNECT_TIMEOUT: ${INGESTION_GOTENBERG_CONNECT_TIMEOUT:-5.0}
       GOTENBERG_READ_TIMEOUT: ${INGESTION_GOTENBERG_READ_TIMEOUT:-120.0}
