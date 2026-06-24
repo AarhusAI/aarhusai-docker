@@ -98,6 +98,8 @@ services:
       ENABLE_OPENAI_API: true
       OPENAI_API_BASE_URLS: ${OPENAI_API_BASE_URLS:-http://litellm:4000/v1}
       OPENAI_API_KEYS: ${OPENAI_API_KEYS:-sk-1234}
+      # Model settings
+      DEFAULT_MODEL_PARAMS: '{"function_calling": "native"}'
       # Disable direct connections (do not allow users to connect to new servers)
       ENABLE_DIRECT_CONNECTIONS: ${ENABLE_DIRECT_CONNECTIONS:-false}
       # User profile notification webhooks
