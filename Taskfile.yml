@@ -253,12 +253,12 @@ tasks:
     silent: true
 
   db:import:
-    desc: "Import a SQL dump into the Open WebUI postgres database (OVERWRITES current data). Example: task db:import -- dump.sql"
+    desc: "Import a SQL dump into the Open WebUI postgres database (EMPTIES the database first, then imports). Example: task db:import -- dump.sql"
     vars:
       DUMP_FILE: '{{ .CLI_ARGS | default "dump.sql" }}'
     cmds:
       - |
-        echo "This will OVERWRITE the local Open WebUI postgres database with '{{ .DUMP_FILE }}'."
+        echo "This will EMPTY the local Open WebUI postgres database and import '{{ .DUMP_FILE }}'."
         echo "Tip: stop the openwebui container first for a clean restore (task compose -- stop openwebui)."
         echo ""
         read -p "Are you sure you want to continue? (y/N): " confirm
@@ -266,6 +266,10 @@ tasks:
           echo "Import cancelled."
           exit 1
         fi
+      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+        platforms: [amd64]
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+        platforms: [arm64]
       - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
         platforms: [amd64]
       - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
