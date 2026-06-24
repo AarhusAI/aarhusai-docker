@@ -273,6 +273,18 @@ tasks:
       - echo "Imported {{ .DUMP_FILE }} into the Open WebUI database"
     silent: true
 
+  db:users:export:
+    desc: "Export Open WebUI users (name, email, role, last_active_at) to CSV. Example: task db:users:export -- users.csv (default: users.csv)"
+    vars:
+      CSV_FILE: '{{ .CLI_ARGS | default "users.csv" }}'
+    cmds:
+      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "\copy (SELECT name, email, role, to_char(to_timestamp(last_active_at), ''YYYY-MM-DD HH24:MI:SS'') AS last_active_at FROM \"user\" ORDER BY last_active_at DESC) TO STDOUT WITH CSV HEADER" > {{ .CSV_FILE }}'
+        platforms: [amd64]
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "\copy (SELECT name, email, role, to_char(to_timestamp(last_active_at), ''YYYY-MM-DD HH24:MI:SS'') AS last_active_at FROM \"user\" ORDER BY last_active_at DESC) TO STDOUT WITH CSV HEADER" > {{ .CSV_FILE }}'
+        platforms: [arm64]
+      - echo "Exported Open WebUI users to {{ .CSV_FILE }}"
+    silent: true
+
   ####
   ## Storage (S3 / MinIO) helpers
   ####
