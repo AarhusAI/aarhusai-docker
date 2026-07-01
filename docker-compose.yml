@@ -84,6 +84,7 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-440}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-token}
+      RAG_TOKENIZER_MODEL: ${RAG_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
       ENABLE_ASYNC_EMBEDDING: ${ENABLE_ASYNC_EMBEDDING:-true}
       ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: ${ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER:-true}
       # RAG retrieval (EXTERNAL)
@@ -342,7 +343,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${COMPOSE_DOMAIN}`)"
-  #      HTTPS config - uncomment to enable redirect from :80 to :443
+      # HTTPS config - uncomment to enable redirect from :80 to :443
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       # WAS redirect configuration

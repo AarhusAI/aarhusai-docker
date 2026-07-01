@@ -48,6 +48,12 @@ vars:
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/49.diff'
       branch: 'feature/rag-query-template'
 
+  PATCHES_OS2:
+    # In conflict with (feature/external-ingest-rag)
+    - name: 'Use tokenizer from the embedding model'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/53.diff'
+      branch: 'feature/embed-tokenizer'
+
   PATCHES_AARHUS:
     # RAG patch (external)
     - name: 'External RAG/Ingestion service'
@@ -152,12 +158,6 @@ tasks:
   ####
   ## Install and setup (local helpers)
   ####
-  patch:
-    desc: "Patch open-webui with ALL custom patches"
-    cmds:
-      - task: patch:base
-      - task: patch:aarhus
-
   patch:base:
     desc: "Patch open-webui with genral custom patches"
     dir: "{{ .TARGET_DIR }}"
@@ -168,10 +168,21 @@ tasks:
     silent: false
 
   patch:aarhus:
-    desc: "Patch open-webui with custom Aarhus patches"
+    desc: "Patch open-webui with base and AarhusAI patches"
     dir: "{{ .TARGET_DIR }}"
     cmds:
+      - task: patch:base
       - for: { var: PATCHES_AARHUS }
+        cmd: |
+          curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
+    silent: false
+
+  patch:os2ai:
+    desc: "Patch open-webui with base and OS2ai patches"
+    dir: "{{ .TARGET_DIR }}"
+    cmds:
+      - task: patch:base
+      - for: { var: PATCHES_OS2 }
         cmd: |
           curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
     silent: false
@@ -435,7 +446,7 @@ tasks:
   prod:prepare:
     desc: "Prepare production build - reset git and apply patches"
     vars:
-      PATCH_TASK: '{{ .PATCH_TASK | default "patch" }}'
+      PATCH_TASK: '{{ .PATCH_TASK | default "patch:base" }}'
     cmds:
       - task: git:reset
       - task: '{{ .PATCH_TASK }}'
@@ -445,7 +456,7 @@ tasks:
     internal: true
     vars:
       IMAGE_NAME: '{{ .IMAGE_NAME }}'
-      PATCH_TASK: '{{ .PATCH_TASK | default "patch" }}'
+      PATCH_TASK: '{{ .PATCH_TASK | default "patch:base" }}'
     cmds:
       - |
         echo "You are about to build and push production images:"
@@ -473,7 +484,7 @@ tasks:
       - task: prod:build:shared
         vars:
           IMAGE_NAME: itkdev/openwebui
-          PATCH_TASK: patch
+          PATCH_TASK: patch:aarhus
 
   prod:build:os2ai:
     desc: Build docker image and push to OS2ai
@@ -481,4 +492,4 @@ tasks:
       - task: prod:build:shared
         vars:
           IMAGE_NAME: ghcr.io/os2ai/open-webui
-          PATCH_TASK: patch:base
+          PATCH_TASK: patch:os2ai
