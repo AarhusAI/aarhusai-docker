@@ -678,8 +678,6 @@ services:
       ENABLE_INSPECTION_API: ${INGESTION_ENABLE_INSPECTION_API:-false}
       # Extraction
       EXTRACTION_ENGINE: ${INGESTION_EXTRACTION_ENGINE:-auto}
-      # Tika sidecar — only used when EXTRACTION_ENGINE=tika (no tika service in this stack by default).
-      TIKA_URL: ${INGESTION_TIKA_URL:-http://tika:9998}
       KREUZBERG_URL: http://kreuzberg:8000
       KREUZBERG_CONNECT_TIMEOUT: ${INGESTION_KREUZBERG_CONNECT_TIMEOUT:-5.0}
       KREUZBERG_READ_TIMEOUT: ${INGESTION_KREUZBERG_READ_TIMEOUT:-60.0}
