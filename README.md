@@ -106,9 +106,9 @@ mark patches, approval state, and pending-upstream status.
 Apply patches:
 
 ```shell
-task patch         # base + Aarhus
 task patch:base    # base only
-task patch:aarhus  # Aarhus only
+task patch:aarhus  # base + Aarhus only
+task patch:os2ai   # base + OS2AI only
 ```
 
 ### Updating to a new upstream release

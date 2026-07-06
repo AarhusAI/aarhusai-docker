@@ -200,7 +200,7 @@ tasks:
         fi
       - if [ ! -d "{{ .TARGET_DIR }}" ]; then task git:clone; fi
       - task git:reset
-      - task patch
+      - task patch:aarhus
       - if [ ! -d "{{ .INGESTION_SERVICE_DIR }}" ]; then task git:clone:ingestion; fi
       - if [ ! -d "{{ .RETRIEVAL_AGENT_DIR }}" ]; then task git:clone:retrieval; fi
       - if [ ! -d "{{ .SEARCH_AGENT_DIR }}" ]; then task git:clone:search; fi
