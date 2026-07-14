@@ -8,6 +8,7 @@ guardrails/__pycache__/
 ingestion-service/
 retrieval-agent/
 search-agent/
+eventdatabasen-agent/
 
 # Database dumps (contain user data)
 *.sql

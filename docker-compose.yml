@@ -98,7 +98,12 @@ services:
       EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
       EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
       EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
-      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-300}"
+      # Client budget for the synchronous ingest PUT. Must exceed the ingestion
+      # service's summed component read timeouts on the slow vision/hybrid-diagram
+      # route (Gotenberg office->PDF 120s + Vision-LLM 180s per call + embedding),
+      # or Open WebUI marks the file failed while the service still commits a good
+      # index. 900s gives headroom over the realistic worst case.
+      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-900}"
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'

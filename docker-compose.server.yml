@@ -665,8 +665,8 @@ services:
       # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
       # so chunks respect the 512-token cap on e5-large. word/sentence/passage
       # delegate to Haystack's built-in DocumentSplitter.
-      CHUNK_SIZE: ${CHUNK_SIZE:-400}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      CHUNK_SIZE: ${CHUNK_SIZE:-500}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       CHUNK_SPLIT_BY: ${INGESTION_CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${INGESTION_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
       TOKENIZER_REVISION: ${INGESTION_TOKENIZER_REVISION:-3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3}

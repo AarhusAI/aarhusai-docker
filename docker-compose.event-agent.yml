@@ -1,0 +1,34 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  eventdatabase:
+    #image: ghcr.io/aarhusai/eventdatabasen-agent:0.0.1
+    build:
+      context: ./eventdatabasen-agent
+      dockerfile: Dockerfile
+      target: ${TARGET:-dev}
+    networks:
+      - app
+    ports:
+      - "8000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${EVENT_DATABASE_SERVICE_API_KEY:?}
+      AGENT_MODEL: ${EVENT_DATABASE_AGENT_MODEL:-AarhusAI-default-v2}
+      AGENT_API_BASE_URL: ${EVENT_DATABASE_AGENT_API_BASE_URL:-https://litellm.itkdev.dk/v1}
+      AGENT_API_KEY: ${EVENT_DATABASE_AGENT_API_KEY:?}
+      AGENT_TIMEOUT: ${EVENT_DATABASE_AGENT_TIMEOUT:-30}
+      EVENT_DB_BASE_URL: ${EVENT_DATABASE_BASE_URL:?}
+      EVENT_DB_API_KEY: ${EVENT_DATABASE_API_KEY:?}
+      DEBUG: ${EVENT_DATABASE_DEBUG:-false}
+      MCP_ALLOWED_HOSTS: ${EVENT_DATABASE_MCP_ALLOWED_HOSTS:-["eventdatabase:*","localhost:*"]}
