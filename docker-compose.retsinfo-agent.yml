@@ -1,0 +1,38 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  retsinformation:
+    #image: ghcr.io/aarhusai/retsinformation-api-agent:0.0.1
+    build:
+      context: ./retsinformation-api-agent
+      dockerfile: Dockerfile
+      target: ${TARGET:-dev}
+    networks:
+      - app
+    ports:
+      - "8000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${RETSINFORMATION_SERVICE_API_KEY:?}
+      RETSINFO_API_BASE_URL: ${RETSINFORMATION_API_BASE_URL:-https://retsinformation-api.dk}
+      RETSINFO_API_KEY: ${RETSINFORMATION_API_KEY:-}
+      RETSINFO_TIMEOUT: ${RETSINFORMATION_TIMEOUT:-30}
+      RETSINFO_DOCUMENT_BASE_URL: ${RETSINFORMATION_DOCUMENT_BASE_URL:-https://www.retsinformation.dk}
+      ENABLE_QUERY_GENERATION: ${RETSINFORMATION_ENABLE_QUERY_GENERATION:-true}
+      LLM_MODEL: ${RETSINFORMATION_LLM_MODEL:-AarhusAI-default-v2}
+      LLM_API_BASE_URL: ${RETSINFORMATION_LLM_API_BASE_URL:-https://litellm.itkdev.dk/v1}
+      LLM_API_KEY: ${RETSINFORMATION_LLM_API_KEY:?}
+      LLM_TIMEOUT: ${RETSINFORMATION_LLM_TIMEOUT:-30}
+      SEARCH_LIMIT: ${RETSINFORMATION_SEARCH_LIMIT:-10}
+      MAX_SEARCH_TERMS: ${RETSINFORMATION_MAX_SEARCH_TERMS:-5}
+      MCP_ALLOWED_HOSTS: ${RETSINFORMATION_MCP_ALLOWED_HOSTS:-["retsinformation:*","localhost:*"]}

@@ -9,6 +9,7 @@ ingestion-service/
 retrieval-agent/
 search-agent/
 eventdatabasen-agent/
+retsinformation-api-agent/
 
 # Database dumps (contain user data)
 *.sql
