@@ -454,7 +454,7 @@ services:
       - ./.docker/data/qdrant:/qdrant/storage:rw
 
   search-agent:
-    image: ghcr.io/aarhusai/search-agent:latest
+    image: ghcr.io/aarhusai/search-agent:${SEARCH_AGENT_VERSION:-latest}
     command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001" ]
     restart: unless-stopped
     networks:
