@@ -1,0 +1,221 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 57f4712027c..516afbe2cd4 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -1232,6 +1232,34 @@ def reachable(host: str, port: int) -> bool:
+     float(os.getenv('RAG_HYBRID_BM25_WEIGHT', '0.5')),
+ )
+ 
++RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = ConfigVar(
++    "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
++    "task.query.retrieval.prompt_template",
++    os.environ.get("RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
++)
++
++DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
++Analyze the chat history and generate 1-3 search queries optimized for retrieving relevant documents from a knowledge base using semantic vector search.
++
++### Guidelines:
++- Respond **EXCLUSIVELY** with a JSON object.
++- Base queries on the **user's questions and information needs only**. Use assistant responses solely for context and disambiguation (e.g. resolving "that", "it", "the one you mentioned").
++- Generate queries as natural-language phrases that capture the semantic meaning of the user's information need.
++- Reformulate conversational references into standalone, self-contained queries.
++- Each query should target a different aspect or angle to maximize retrieval coverage.
++- If the user's message clearly needs no document retrieval (e.g. greetings), return: { "queries": [] }
++- Respond in the same language as the user's messages.
++- Today's date is: {{CURRENT_DATE}}
++
++### Output:
++{ "queries": ["query1", "query2"] }
++
++### Chat History:
++<chat_history>
++{{MESSAGES:END:4}}
++</chat_history>
++"""
++
+ ENABLE_RAG_HYBRID_SEARCH = ConfigVar(
+     'ENABLE_RAG_HYBRID_SEARCH',
+     'rag.enable_hybrid_search',
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index e05497c6165..2c433a1344b 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -319,6 +319,7 @@
+     PLAYWRIGHT_TIMEOUT,
+     PLAYWRIGHT_WS_URL,
+     QUERY_GENERATION_PROMPT_TEMPLATE,
++    RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     RAG_ALLOWED_FILE_EXTENSIONS,
+     RAG_AZURE_OPENAI_API_KEY,
+     RAG_AZURE_OPENAI_API_VERSION,
+@@ -1369,6 +1370,7 @@ async def lifespan(app: FastAPI):
+ app.state.config.VOICE_MODE_PROMPT_TEMPLATE = VOICE_MODE_PROMPT_TEMPLATE
+ app.state.config.ENABLE_VOICE_MODE_PROMPT = ENABLE_VOICE_MODE_PROMPT
+ 
++app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
+ 
+ ########################################
+ #
+diff --git a/backend/open_webui/routers/tasks.py b/backend/open_webui/routers/tasks.py
+index 0e88f8594a5..8e7442422a1 100644
+--- a/backend/open_webui/routers/tasks.py
++++ b/backend/open_webui/routers/tasks.py
+@@ -11,6 +11,7 @@
+     DEFAULT_IMAGE_PROMPT_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE,
++    DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_TAGS_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_TITLE_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_VOICE_MODE_PROMPT_TEMPLATE,
+@@ -77,6 +78,7 @@ async def get_task_config(request: Request, user=Depends(get_verified_user)):
+         'TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE': request.app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE,
+         'ENABLE_VOICE_MODE_PROMPT': request.app.state.config.ENABLE_VOICE_MODE_PROMPT,
+         'VOICE_MODE_PROMPT_TEMPLATE': request.app.state.config.VOICE_MODE_PROMPT_TEMPLATE,
++        'RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE': request.app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     }
+ 
+ 
+@@ -95,6 +97,7 @@ class TaskConfigForm(BaseModel):
+     ENABLE_SEARCH_QUERY_GENERATION: bool
+     ENABLE_RETRIEVAL_QUERY_GENERATION: bool
+     QUERY_GENERATION_PROMPT_TEMPLATE: str
++    RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: str
+     TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: str
+     ENABLE_VOICE_MODE_PROMPT: bool
+     VOICE_MODE_PROMPT_TEMPLATE: Optional[str]
+@@ -128,6 +131,11 @@ async def update_task_config(request: Request, form_data: TaskConfigForm, user=D
+     request.app.state.config.ENABLE_VOICE_MODE_PROMPT = form_data.ENABLE_VOICE_MODE_PROMPT
+     request.app.state.config.VOICE_MODE_PROMPT_TEMPLATE = form_data.VOICE_MODE_PROMPT_TEMPLATE
+ 
++    request.app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = (
++        form_data.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
++    )
++
++
+     return {
+         'TASK_MODEL': request.app.state.config.TASK_MODEL,
+         'TASK_MODEL_EXTERNAL': request.app.state.config.TASK_MODEL_EXTERNAL,
+@@ -146,6 +154,7 @@ async def update_task_config(request: Request, form_data: TaskConfigForm, user=D
+         'TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE': request.app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE,
+         'ENABLE_VOICE_MODE_PROMPT': request.app.state.config.ENABLE_VOICE_MODE_PROMPT,
+         'VOICE_MODE_PROMPT_TEMPLATE': request.app.state.config.VOICE_MODE_PROMPT_TEMPLATE,
++        'RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE': request.app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     }
+ 
+ 
+@@ -479,10 +488,20 @@ async def generate_queries(request: Request, form_data: dict, user=Depends(get_v
+ 
+     log.debug(f'generating {type} queries using model {task_model_id} for user {user.email}')
+ 
+-    if (request.app.state.config.QUERY_GENERATION_PROMPT_TEMPLATE).strip() != '':
+-        template = request.app.state.config.QUERY_GENERATION_PROMPT_TEMPLATE
++    if type == 'retrieval':
++        if (
++            request.app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
++        ).strip() != '':
++            template = (
++                request.app.state.config.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
++            )
++        else:
++            template = DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
+     else:
+-        template = DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE
++        if request.app.state.config.QUERY_GENERATION_PROMPT_TEMPLATE.strip() != '':
++            template = request.app.state.config.QUERY_GENERATION_PROMPT_TEMPLATE
++        else:
++            template = DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE
+ 
+     content = await query_generation_template(template, form_data['messages'], user)
+ 
+diff --git a/src/lib/components/admin/Settings/Documents.svelte b/src/lib/components/admin/Settings/Documents.svelte
+index 92706ff94d8..283e7807438 100644
+--- a/src/lib/components/admin/Settings/Documents.svelte
++++ b/src/lib/components/admin/Settings/Documents.svelte
+@@ -17,6 +17,8 @@
+ 		updateRAGConfig
+ 	} from '$lib/apis/retrieval';
+ 
++	import { getTaskConfig, updateTaskConfig } from '$lib/apis';
++
+ 	import { reindexKnowledgeFiles } from '$lib/apis/knowledge';
+ 	import { deleteAllFiles } from '$lib/apis/files';
+ 
+@@ -65,6 +67,7 @@
+ 	};
+ 
+ 	let RAGConfig = null;
++	let retrievalQueryPrompt = '';
+ 
+ 	const embeddingModelUpdateHandler = async () => {
+ 		if (RAG_EMBEDDING_ENGINE === '' && RAG_EMBEDDING_MODEL.split('/').length - 1 > 1) {
+@@ -226,6 +229,15 @@
+ 			}
+ 		}
+ 
++		// Save the retrieval query prompt via the task config API
++		const currentTaskConfig = await getTaskConfig(localStorage.token);
++		if (currentTaskConfig) {
++			await updateTaskConfig(localStorage.token, {
++				...currentTaskConfig,
++				RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: retrievalQueryPrompt
++			});
++		}
++
+ 		const res = await updateRAGConfig(localStorage.token, {
+ 			...RAGConfig,
+ 			// Convert null (from cleared number inputs) to empty string so the backend
+@@ -292,6 +304,11 @@
+ 		config.MINERU_FILE_EXTENSIONS = (config?.MINERU_FILE_EXTENSIONS ?? ['pdf']).join(', ');
+ 
+ 		RAGConfig = config;
++
++		const taskConfig = await getTaskConfig(localStorage.token);
++		if (taskConfig) {
++			retrievalQueryPrompt = taskConfig.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE ?? '';
++		}
+ 	});
+ </script>
+ 
+@@ -1376,6 +1393,28 @@
+ 							{/if}
+ 						{/if}
+ 
++						<div class="  mb-2.5 flex flex-col w-full justify-between">
++							<div class=" mb-1 text-xs font-medium">
++								{$i18n.t('Retrieval Query Generation Prompt')}
++							</div>
++							<div class="flex w-full items-center relative">
++								<Tooltip
++									content={$i18n.t(
++										'Leave empty to use the default prompt, or enter a custom prompt'
++									)}
++									placement="top-start"
++									className="w-full"
++								>
++									<Textarea
++										bind:value={retrievalQueryPrompt}
++										placeholder={$i18n.t(
++											'Leave empty to use the default prompt, or enter a custom prompt'
++										)}
++									/>
++								</Tooltip>
++							</div>
++						</div>
++
+ 						<div class="  mb-2.5 flex flex-col w-full justify-between">
+ 							<div class=" mb-1 text-xs font-medium">{$i18n.t('RAG Template')}</div>
+ 							<div class="flex w-full items-center relative">
+diff --git a/src/lib/components/admin/Settings/Interface.svelte b/src/lib/components/admin/Settings/Interface.svelte
+index ea2f60ddb99..edd279259b3 100644
+--- a/src/lib/components/admin/Settings/Interface.svelte
++++ b/src/lib/components/admin/Settings/Interface.svelte
+@@ -30,6 +30,7 @@
+ 		ENABLE_SEARCH_QUERY_GENERATION: true,
+ 		ENABLE_RETRIEVAL_QUERY_GENERATION: true,
+ 		QUERY_GENERATION_PROMPT_TEMPLATE: '',
++		RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: '',
+ 		TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: '',
+ 		ENABLE_VOICE_MODE_PROMPT: true,
+ 		VOICE_MODE_PROMPT_TEMPLATE: ''

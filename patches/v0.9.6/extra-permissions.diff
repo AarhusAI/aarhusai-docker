@@ -1,0 +1,176 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 57f4712027c..baef4bcc8b6 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -2735,6 +2735,10 @@ def reachable(host: str, port: int) -> bool:
+ 
+ USER_PERMISSIONS_CHAT_SYSTEM_PROMPT = os.getenv('USER_PERMISSIONS_CHAT_SYSTEM_PROMPT', 'True').lower() == 'true'
+ 
++USER_PERMISSIONS_CHAT_IMAGE_CAPTURE = os.getenv('USER_PERMISSIONS_CHAT_IMAGE_CAPTURE', 'False').lower() == 'true'
++
++USER_PERMISSIONS_CHAT_ATTACH_KNOWLEDGE = os.getenv('USER_PERMISSIONS_CHAT_ATTACH_KNOWLEDGE', 'False').lower() == 'true'
++
+ USER_PERMISSIONS_CHAT_PARAMS = os.getenv('USER_PERMISSIONS_CHAT_PARAMS', 'True').lower() == 'true'
+ 
+ USER_PERMISSIONS_CHAT_FILE_UPLOAD = os.getenv('USER_PERMISSIONS_CHAT_FILE_UPLOAD', 'True').lower() == 'true'
+@@ -2847,6 +2851,8 @@ def reachable(host: str, port: int) -> bool:
+         'controls': USER_PERMISSIONS_CHAT_CONTROLS,
+         'valves': USER_PERMISSIONS_CHAT_VALVES,
+         'system_prompt': USER_PERMISSIONS_CHAT_SYSTEM_PROMPT,
++        'image_capture': USER_PERMISSIONS_CHAT_IMAGE_CAPTURE,
++        'attach_knowledge': USER_PERMISSIONS_CHAT_ATTACH_KNOWLEDGE,
+         'params': USER_PERMISSIONS_CHAT_PARAMS,
+         'file_upload': USER_PERMISSIONS_CHAT_FILE_UPLOAD,
+         'web_upload': USER_PERMISSIONS_CHAT_WEB_UPLOAD,
+diff --git a/backend/open_webui/routers/users.py b/backend/open_webui/routers/users.py
+index 0b8da713df0..4085e77583b 100644
+--- a/backend/open_webui/routers/users.py
++++ b/backend/open_webui/routers/users.py
+@@ -204,6 +204,8 @@ class ChatPermissions(BaseModel):
+     controls: bool = True
+     valves: bool = True
+     system_prompt: bool = True
++    image_capture: bool = True
++    attach_knowledge: bool = True
+     params: bool = True
+     file_upload: bool = True
+     web_upload: bool = True
+diff --git a/src/lib/components/admin/Users/Groups/Permissions.svelte b/src/lib/components/admin/Users/Groups/Permissions.svelte
+index 6523419531b..fb0029fe96c 100644
+--- a/src/lib/components/admin/Users/Groups/Permissions.svelte
++++ b/src/lib/components/admin/Users/Groups/Permissions.svelte
+@@ -571,6 +571,38 @@
+ 			{/if}
+ 		</div>
+ 
++        <div class="flex flex-col w-full">
++			<div class="flex w-full justify-between my-1">
++				<div class=" self-center text-xs font-medium">
++					{$i18n.t('Allow Image capture')}
++				</div>
++				<Switch bind:state={permissions.chat.image_capture} />
++			</div>
++			{#if defaultPermissions?.chat?.image_capture && !permissions.chat.image_capture}
++				<div>
++					<div class="text-xs text-gray-500">
++						{$i18n.t('This is a default user permission and will remain enabled.')}
++					</div>
++				</div>
++			{/if}
++		</div>
++
++        <div class="flex flex-col w-full">
++			<div class="flex w-full justify-between my-1">
++				<div class=" self-center text-xs font-medium">
++					{$i18n.t('Allow Attach Knowledge')}
++				</div>
++				<Switch bind:state={permissions.chat.attach_knowledge} />
++			</div>
++			{#if defaultPermissions?.chat?.attach_knowledge && !permissions.chat.attach_knowledge}
++				<div>
++					<div class="text-xs text-gray-500">
++						{$i18n.t('This is a default user permission and will remain enabled.')}
++					</div>
++				</div>
++			{/if}
++		</div>
++
+ 		<div class="flex flex-col w-full">
+ 			<div class="flex w-full justify-between my-1">
+ 				<div class=" self-center text-xs font-medium">
+diff --git a/src/lib/components/chat/MessageInput/InputMenu.svelte b/src/lib/components/chat/MessageInput/InputMenu.svelte
+index e3ecfae7818..56a1550d1b3 100644
+--- a/src/lib/components/chat/MessageInput/InputMenu.svelte
++++ b/src/lib/components/chat/MessageInput/InputMenu.svelte
+@@ -152,6 +152,7 @@
+ 						</button>
+ 					</Tooltip>
+ 
++                    {#if $user?.role === 'admin' || $user?.permissions.chat?.image_capture}
+ 					<Tooltip
+ 						content={fileUploadCapableModels.length !== selectedModels.length
+ 							? $i18n.t('Model(s) do not support file upload')
+@@ -184,6 +185,7 @@
+ 							<div class=" line-clamp-1">{$i18n.t('Capture')}</div>
+ 						</button>
+ 					</Tooltip>
++                    {/if}
+ 
+ 					<Tooltip
+ 						content={!webUploadEnabled
+@@ -272,35 +274,37 @@
+ 						</Tooltip>
+ 					{/if}
+ 
+-					<Tooltip
+-						content={fileUploadCapableModels.length !== selectedModels.length
+-							? $i18n.t('Model(s) do not support file upload')
+-							: !fileUploadEnabled
+-								? $i18n.t('You do not have permission to upload files.')
+-								: ''}
+-						className="w-full"
+-					>
+-						<button
+-							class="flex gap-2 w-full items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
+-								? 'opacity-50'
+-								: ''}"
+-							on:click={() => {
+-								tab = 'knowledge';
+-							}}
++					{#if $user?.role === 'admin' || $user?.permissions.chat?.attach_knowledge}
++						<Tooltip
++							content={fileUploadCapableModels.length !== selectedModels.length
++								? $i18n.t('Model(s) do not support file upload')
++								: !fileUploadEnabled
++									? $i18n.t('You do not have permission to upload files.')
++									: ''}
++							className="w-full"
+ 						>
+-							<Database />
++							<button
++								class="flex gap-2 w-full items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
++									? 'opacity-50'
++									: ''}"
++								on:click={() => {
++									tab = 'knowledge';
++								}}
++							>
++								<Database />
+ 
+-							<div class="flex items-center w-full justify-between">
+-								<div class=" line-clamp-1">
+-									{$i18n.t('Attach Knowledge')}
+-								</div>
++								<div class="flex items-center w-full justify-between">
++									<div class=" line-clamp-1">
++										{$i18n.t('Attach Knowledge')}
++									</div>
+ 
+-								<div class="text-gray-500">
+-									<ChevronRight />
++									<div class="text-gray-500">
++										<ChevronRight />
++									</div>
+ 								</div>
+-							</div>
+-						</button>
+-					</Tooltip>
++							</button>
++						</Tooltip>
++					{/if}
+ 
+ 					<Tooltip
+ 						content={fileUploadCapableModels.length !== selectedModels.length
+diff --git a/src/lib/constants/permissions.ts b/src/lib/constants/permissions.ts
+index b384e301b32..e9dc5886af2 100644
+--- a/src/lib/constants/permissions.ts
++++ b/src/lib/constants/permissions.ts
+@@ -35,6 +35,8 @@ export const DEFAULT_PERMISSIONS = {
+ 		controls: true,
+ 		valves: true,
+ 		system_prompt: true,
++		image_capture: true,
++		attach_knowledge: true,
+ 		params: true,
+ 		file_upload: true,
+ 		web_upload: true,

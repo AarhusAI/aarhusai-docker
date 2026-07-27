@@ -1,0 +1,1265 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 57f4712027c..eb5c5819c19 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -1382,6 +1382,82 @@ def reachable(host: str, port: int) -> bool:
+ )
+ 
+ 
++# --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++# External retrieval engine: allows delegating document search to an external HTTP service
++RAG_RETRIEVAL_ENGINE = ConfigVar(
++    "RAG_RETRIEVAL_ENGINE",
++    "rag.retrieval_engine",
++    os.environ.get("RAG_RETRIEVAL_ENGINE", ""),
++)
++
++RAG_EXTERNAL_RETRIEVAL_URL = ConfigVar(
++    "RAG_EXTERNAL_RETRIEVAL_URL",
++    "rag.external_retrieval_url",
++    os.environ.get("RAG_EXTERNAL_RETRIEVAL_URL", ""),
++)
++
++RAG_EXTERNAL_RETRIEVAL_API_KEY = ConfigVar(
++    "RAG_EXTERNAL_RETRIEVAL_API_KEY",
++    "rag.external_retrieval_api_key",
++    os.environ.get("RAG_EXTERNAL_RETRIEVAL_API_KEY", ""),
++)
++
++RAG_EXTERNAL_RETRIEVAL_TIMEOUT = ConfigVar(
++    "RAG_EXTERNAL_RETRIEVAL_TIMEOUT",
++    "rag.external_retrieval_timeout",
++    os.environ.get("RAG_EXTERNAL_RETRIEVAL_TIMEOUT", ""),
++)
++
++RAG_EXTERNAL_BYPASS_QUERY_GENERATION = ConfigVar(
++    "RAG_EXTERNAL_BYPASS_QUERY_GENERATION",
++    "rag.external_bypass_query_generation",
++    os.environ.get("RAG_EXTERNAL_BYPASS_QUERY_GENERATION", "false").lower() == "true",
++)
++
++RAG_EXTERNAL_MESSAGE_COUNT = ConfigVar(
++    "RAG_EXTERNAL_MESSAGE_COUNT",
++    "rag.external_message_count",
++    int(os.environ.get("RAG_EXTERNAL_MESSAGE_COUNT", "10")),
++)
++
++RAG_EXTERNAL_USER_MESSAGES_ONLY = ConfigVar(
++    "RAG_EXTERNAL_USER_MESSAGES_ONLY",
++    "rag.external_user_messages_only",
++    os.environ.get("RAG_EXTERNAL_USER_MESSAGES_ONLY", "false").lower() == "true",
++)
++# --- END EXTERNAL RETRIEVAL PATCH ---
++
++
++# --- BEGIN EXTERNAL INGESTION PATCH ---
++# External ingestion engine: delegates document chunking, embedding, and vector
++# storage to an external HTTP service instead of running save_docs_to_vector_db
++# in-process. Default off; set EXTERNAL_INGESTION_ENGINE=external to enable.
++EXTERNAL_INGESTION_ENGINE = ConfigVar(
++    "EXTERNAL_INGESTION_ENGINE",
++    "rag.external_ingestion_engine",
++    os.environ.get("EXTERNAL_INGESTION_ENGINE", ""),
++)
++
++EXTERNAL_INGESTION_URL = ConfigVar(
++    "EXTERNAL_INGESTION_URL",
++    "rag.external_ingestion_url",
++    os.environ.get("EXTERNAL_INGESTION_URL", ""),
++)
++
++EXTERNAL_INGESTION_API_KEY = ConfigVar(
++    "EXTERNAL_INGESTION_API_KEY",
++    "rag.external_ingestion_api_key",
++    os.environ.get("EXTERNAL_INGESTION_API_KEY", ""),
++)
++
++EXTERNAL_INGESTION_TIMEOUT = ConfigVar(
++    "EXTERNAL_INGESTION_TIMEOUT",
++    "rag.external_ingestion_timeout",
++    os.environ.get("EXTERNAL_INGESTION_TIMEOUT", "300"),
++)
++# --- END EXTERNAL INGESTION PATCH ---
++
++
+ RAG_TEXT_SPLITTER = ConfigVar(
+     'RAG_TEXT_SPLITTER',
+     'rag.text_splitter',
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index e05497c6165..3cd93bf1d19 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -341,6 +341,21 @@
+     RAG_OPENAI_API_BASE_URL,
+     RAG_OPENAI_API_KEY,
+     RAG_RELEVANCE_THRESHOLD,
++    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++    RAG_RETRIEVAL_ENGINE,
++    RAG_EXTERNAL_RETRIEVAL_URL,
++    RAG_EXTERNAL_RETRIEVAL_API_KEY,
++    RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
++    RAG_EXTERNAL_BYPASS_QUERY_GENERATION,
++    RAG_EXTERNAL_MESSAGE_COUNT,
++    RAG_EXTERNAL_USER_MESSAGES_ONLY,
++    # --- END EXTERNAL RETRIEVAL PATCH ---
++    # --- BEGIN EXTERNAL INGESTION PATCH ---
++    EXTERNAL_INGESTION_ENGINE,
++    EXTERNAL_INGESTION_URL,
++    EXTERNAL_INGESTION_API_KEY,
++    EXTERNAL_INGESTION_TIMEOUT,
++    # --- END EXTERNAL INGESTION PATCH ---
+     RAG_RERANKING_BATCH_SIZE,
+     RAG_RERANKING_ENGINE,
+     RAG_RERANKING_MODEL,
+@@ -1057,6 +1072,21 @@ async def lifespan(app: FastAPI):
+ app.state.config.RAG_EXTERNAL_RERANKER_API_KEY = RAG_EXTERNAL_RERANKER_API_KEY
+ app.state.config.RAG_EXTERNAL_RERANKER_TIMEOUT = RAG_EXTERNAL_RERANKER_TIMEOUT
+ app.state.config.RAG_RERANKING_BATCH_SIZE = RAG_RERANKING_BATCH_SIZE
++# --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++app.state.config.RAG_RETRIEVAL_ENGINE = RAG_RETRIEVAL_ENGINE
++app.state.config.RAG_EXTERNAL_RETRIEVAL_URL = RAG_EXTERNAL_RETRIEVAL_URL
++app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY = RAG_EXTERNAL_RETRIEVAL_API_KEY
++app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT = RAG_EXTERNAL_RETRIEVAL_TIMEOUT
++app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION = RAG_EXTERNAL_BYPASS_QUERY_GENERATION
++app.state.config.RAG_EXTERNAL_MESSAGE_COUNT = RAG_EXTERNAL_MESSAGE_COUNT
++app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY = RAG_EXTERNAL_USER_MESSAGES_ONLY
++# --- END EXTERNAL RETRIEVAL PATCH ---
++# --- BEGIN EXTERNAL INGESTION PATCH ---
++app.state.config.EXTERNAL_INGESTION_ENGINE = EXTERNAL_INGESTION_ENGINE
++app.state.config.EXTERNAL_INGESTION_URL = EXTERNAL_INGESTION_URL
++app.state.config.EXTERNAL_INGESTION_API_KEY = EXTERNAL_INGESTION_API_KEY
++app.state.config.EXTERNAL_INGESTION_TIMEOUT = EXTERNAL_INGESTION_TIMEOUT
++# --- END EXTERNAL INGESTION PATCH ---
+ 
+ app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
+ 
+diff --git a/backend/open_webui/retrieval/external.py b/backend/open_webui/retrieval/external.py
+new file mode 100644
+index 00000000000..2bc7c916054
+--- /dev/null
++++ b/backend/open_webui/retrieval/external.py
+@@ -0,0 +1,210 @@
++# --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++# External retrieval engine: delegates document search to an external HTTP service
++# instead of querying the built-in vector DB directly.
++# --- END EXTERNAL RETRIEVAL PATCH ---
++# --- BEGIN EXTERNAL INGESTION PATCH ---
++# External ingestion engine: delegates document chunking, embedding, and vector
++# storage to an external HTTP service instead of running save_docs_to_vector_db
++# in-process.
++# --- END EXTERNAL INGESTION PATCH ---
++
++import logging
++from typing import Optional, List
++
++import requests
++
++from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS, REQUESTS_VERIFY
++from open_webui.utils.headers import include_user_info_headers
++
++log = logging.getLogger(__name__)
++
++
++def query_external_retrieval(
++    url: str,
++    api_key: str,
++    queries: List[str],
++    collection_names: List[str],
++    k: int,
++    timeout: Optional[str] = None,
++    user=None,
++    messages: Optional[List[dict]] = None,
++) -> Optional[dict]:
++    """
++    Query an external retrieval service.
++
++    POST {url}/search with queries + collection_names + k.
++    Optionally includes the chat messages so the external service can
++    extract/generate its own queries from the conversation. Open WebUI's
++    QUERY_GENERATION_PROMPT_TEMPLATE is intentionally NOT forwarded — the
++    external service runs its own query generation.
++    Returns dict with keys: documents, metadatas, distances (matching internal format).
++    Returns None on error.
++    """
++    payload = {
++        "queries": queries,
++        "collection_names": collection_names,
++        "k": k,
++    }
++
++    if messages is not None:
++        payload["messages"] = messages
++
++    try:
++        headers = {
++            "Content-Type": "application/json",
++            "Authorization": f"Bearer {api_key}",
++        }
++
++        if ENABLE_FORWARD_USER_INFO_HEADERS and user:
++            headers = include_user_info_headers(headers, user)
++
++        request_timeout = int(timeout) if timeout else None
++
++        log.info(
++            f"query_external_retrieval: url={url}, queries={queries}, "
++            f"messages={len(messages) if messages else 0}, "
++            f"collections={collection_names}, k={k}"
++        )
++
++        r = requests.post(
++            f"{url}/search",
++            headers=headers,
++            json=payload,
++            timeout=request_timeout,
++            verify=REQUESTS_VERIFY,
++        )
++        r.raise_for_status()
++        data = r.json()
++
++        if "documents" in data:
++            return data
++        else:
++            log.error("No documents found in external retrieval response")
++            return None
++
++    except Exception as e:
++        log.exception(f"Error in external retrieval: {e}")
++        return None
++
++
++# --- BEGIN EXTERNAL INGESTION PATCH ---
++def process_file_external_ingestion(
++    url: str,
++    api_key: str,
++    file_id: str,
++    filename: str,
++    collection_name: str,
++    user_id: str,
++    local_file_path: Optional[str] = None,
++    s3_bucket: Optional[str] = None,
++    s3_key: Optional[str] = None,
++    timeout: Optional[int] = 300,
++) -> Optional[dict]:
++    """
++    Delegate document ingestion to an external HTTP service.
++
++    PUT {url}/api/v1/ingest with either:
++      - JSON body containing s3_bucket + s3_key (preferred when storage is S3)
++      - multipart body containing the file (fallback when storage is local)
++
++    Returns the service's response dict on success
++    ({"status": True, "collection_name": ..., "chunks_count": ...})
++    or None on transport / server error. Caller treats None as failure.
++    """
++    try:
++        headers = {"Authorization": f"Bearer {api_key}"}
++        endpoint = f"{url.rstrip('/')}/api/v1/ingest"
++
++        if s3_bucket and s3_key:
++            payload = {
++                "s3_bucket": s3_bucket,
++                "s3_key": s3_key,
++                "file_id": file_id,
++                "filename": filename,
++                "collection_name": collection_name,
++                "collection_type": "file",
++                "user_id": user_id,
++                "overwrite": True,
++            }
++            log.info(
++                f"process_file_external_ingestion (s3): file_id={file_id}, "
++                f"collection={collection_name}, s3={s3_bucket}/{s3_key}"
++            )
++            r = requests.put(
++                endpoint,
++                headers={**headers, "Content-Type": "application/json"},
++                json=payload,
++                timeout=timeout,
++                verify=REQUESTS_VERIFY,
++            )
++        elif local_file_path:
++            log.info(
++                f"process_file_external_ingestion (multipart): file_id={file_id}, "
++                f"collection={collection_name}, path={local_file_path}"
++            )
++            with open(local_file_path, "rb") as fh:
++                files = {"file": (filename, fh)}
++                data = {
++                    "file_id": file_id,
++                    "filename": filename,
++                    "collection_name": collection_name,
++                    "collection_type": "file",
++                    "user_id": user_id,
++                    "overwrite": "true",
++                }
++                r = requests.put(
++                    endpoint,
++                    headers=headers,
++                    files=files,
++                    data=data,
++                    timeout=timeout,
++                    verify=REQUESTS_VERIFY,
++                )
++        else:
++            log.error(
++                "process_file_external_ingestion: no S3 reference and no local file path"
++            )
++            return None
++
++        r.raise_for_status()
++        return r.json()
++
++    except Exception as e:
++        log.exception(f"Error in external ingestion: {e}")
++        return None
++
++
++def delete_file_external_ingestion(
++    url: str,
++    api_key: str,
++    file_id: str,
++    timeout: int = 300,
++) -> Optional[dict]:
++    """Tell the external ingestion service to drop a file's vectors.
++
++    DELETE {url}/api/v1/documents/{file_id}. The vector store lives behind the
++    external service now, so Open WebUI's own vector-DB cleanup no longer reaches
++    it — this call keeps the two in sync when a file is deleted.
++
++    Best-effort: returns the service's response dict on success, or None on any
++    transport/server error (logged, never raised). Callers MUST NOT let a failed
++    cleanup block the user's file deletion. ``file_id`` is the bare file UUID —
++    the service matches on meta.file_id, not the "file-" collection name.
++    """
++    try:
++        headers = {"Authorization": f"Bearer {api_key}"}
++        endpoint = f"{url.rstrip('/')}/api/v1/documents/{file_id}"
++        log.info(f"delete_file_external_ingestion: file_id={file_id}")
++        r = requests.delete(
++            endpoint,
++            headers=headers,
++            timeout=timeout,
++            verify=REQUESTS_VERIFY,
++        )
++        r.raise_for_status()
++        return r.json()
++
++    except Exception as e:
++        log.exception(f"Error in external ingestion delete: {e}")
++        return None
++# --- END EXTERNAL INGESTION PATCH ---
+diff --git a/backend/open_webui/retrieval/utils.py b/backend/open_webui/retrieval/utils.py
+index 2db9f47c53a..93638bb19d2 100644
+--- a/backend/open_webui/retrieval/utils.py
++++ b/backend/open_webui/retrieval/utils.py
+@@ -19,6 +19,11 @@
+ )
+ from langchain_community.retrievers import BM25Retriever
+ from langchain_core.documents import Document
++
++# --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++from open_webui.retrieval.external import query_external_retrieval
++# --- END EXTERNAL RETRIEVAL PATCH ---
++
+ from open_webui.config import (
+     RAG_EMBEDDING_CONTENT_PREFIX,
+     RAG_EMBEDDING_PREFIX_FIELD_NAME,
+@@ -1162,6 +1167,9 @@ async def get_sources_from_items(
+     hybrid_search,
+     full_context=False,
+     user: UserModel | None = None,
++    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++    messages: Optional[list] = None,
++    # --- END EXTERNAL RETRIEVAL PATCH ---
+ ):
+     log.debug(f'items: {items} {queries} {embedding_function} {reranking_function} {full_context}')
+ 
+@@ -1410,6 +1418,23 @@ async def get_sources_from_items(
+                     # Sync helper makes blocking VECTOR_DB_CLIENT calls;
+                     # offload so the async caller's event loop stays free.
+                     query_result = await asyncio.to_thread(get_all_items_from_collections, collection_names)
++                # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++                elif request.app.state.config.RAG_RETRIEVAL_ENGINE == "external":
++                    # The external retrieval service runs its own query
++                    # generation, so Open WebUI's QUERY_GENERATION_PROMPT_TEMPLATE
++                    # is intentionally NOT forwarded.
++                    query_result = await asyncio.to_thread(
++                        query_external_retrieval,
++                        url=request.app.state.config.RAG_EXTERNAL_RETRIEVAL_URL,
++                        api_key=request.app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY,
++                        queries=queries,
++                        collection_names=list(collection_names),
++                        k=k,
++                        timeout=request.app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
++                        user=user,
++                        messages=messages,
++                    )
++                # --- END EXTERNAL RETRIEVAL PATCH ---
+                 else:
+                     query_result = await query_collection(
+                         request,
+diff --git a/backend/open_webui/routers/files.py b/backend/open_webui/routers/files.py
+index dbf1ccb885a..59ea3489b3b 100644
+--- a/backend/open_webui/routers/files.py
++++ b/backend/open_webui/routers/files.py
+@@ -37,6 +37,7 @@
+ from open_webui.models.groups import Groups
+ from open_webui.models.knowledge import Knowledges
+ from open_webui.models.users import Users
++from open_webui.retrieval.external import delete_file_external_ingestion
+ from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+ from open_webui.routers.audio import transcribe
+ from open_webui.routers.retrieval import ProcessFileForm, process_file
+@@ -859,7 +860,12 @@ async def rename_file_by_id(
+ 
+ 
+ @router.delete('/{id}')
+-async def delete_file_by_id(id: str, user=Depends(get_verified_user), db: AsyncSession = Depends(get_async_session)):
++async def delete_file_by_id(
++    request: Request,
++    id: str,
++    user=Depends(get_verified_user),
++    db: AsyncSession = Depends(get_async_session),
++):
+     file = await Files.get_file_by_id(id, db=db)
+ 
+     if not file:
+@@ -894,6 +900,30 @@ async def delete_file_by_id(id: str, user=Depends(get_verified_user), db: AsyncS
+                     status_code=status.HTTP_400_BAD_REQUEST,
+                     detail=ERROR_MESSAGES.DEFAULT('Error deleting files'),
+                 )
++            # --- BEGIN EXTERNAL INGESTION PATCH ---
++            # The vector store lives behind the external ingestion service now,
++            # so the ASYNC_VECTOR_DB_CLIENT deletes above don't reach it. Notify
++            # the service so this file's chunks don't outlive the file. Kept
++            # OUTSIDE the try above (which re-raises as HTTP 400) and best-effort
++            # — a failed cleanup must never fail the user's delete.
++            _cfg = request.app.state.config
++            if _cfg.EXTERNAL_INGESTION_ENGINE == 'external' and _cfg.EXTERNAL_INGESTION_URL:
++                try:
++                    _timeout = (
++                        int(_cfg.EXTERNAL_INGESTION_TIMEOUT)
++                        if _cfg.EXTERNAL_INGESTION_TIMEOUT
++                        else 300
++                    )
++                    await asyncio.to_thread(
++                        delete_file_external_ingestion,
++                        url=_cfg.EXTERNAL_INGESTION_URL,
++                        api_key=_cfg.EXTERNAL_INGESTION_API_KEY,
++                        file_id=id,
++                        timeout=_timeout,
++                    )
++                except Exception as e:
++                    log.debug(f'external ingestion delete for {id}: {e}')
++            # --- END EXTERNAL INGESTION PATCH ---
+             return {'message': 'File deleted successfully'}
+         else:
+             raise HTTPException(
+diff --git a/backend/open_webui/routers/knowledge.py b/backend/open_webui/routers/knowledge.py
+index 35069864290..8ca1809034e 100644
+--- a/backend/open_webui/routers/knowledge.py
++++ b/backend/open_webui/routers/knowledge.py
+@@ -25,6 +25,7 @@
+     KnowledgeUserResponse,
+ )
+ from open_webui.models.models import ModelForm, Models
++from open_webui.retrieval.external import delete_file_external_ingestion
+ from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
+ from open_webui.routers.retrieval import (
+     BatchProcessFilesForm,
+@@ -864,6 +865,7 @@ async def update_file_from_knowledge_by_id(
+ 
+ @router.post('/{id}/file/remove', response_model=KnowledgeFilesResponse | None)
+ async def remove_file_from_knowledge_by_id(
++    request: Request,
+     id: str,
+     form_data: KnowledgeFileIdForm,
+     delete_file: bool = Query(True),
+@@ -938,6 +940,28 @@ async def remove_file_from_knowledge_by_id(
+         # Delete file from database
+         await Files.delete_file_by_id(form_data.file_id, db=db)
+ 
++        # --- BEGIN EXTERNAL INGESTION PATCH ---
++        # File is permanently deleted here (delete_file branch), so clean up its
++        # vectors in the external ingestion service too. Best-effort, never raises.
++        _cfg = request.app.state.config
++        if _cfg.EXTERNAL_INGESTION_ENGINE == 'external' and _cfg.EXTERNAL_INGESTION_URL:
++            try:
++                _timeout = (
++                    int(_cfg.EXTERNAL_INGESTION_TIMEOUT)
++                    if _cfg.EXTERNAL_INGESTION_TIMEOUT
++                    else 300
++                )
++                await asyncio.to_thread(
++                    delete_file_external_ingestion,
++                    url=_cfg.EXTERNAL_INGESTION_URL,
++                    api_key=_cfg.EXTERNAL_INGESTION_API_KEY,
++                    file_id=form_data.file_id,
++                    timeout=_timeout,
++                )
++            except Exception as e:
++                log.debug(f'external ingestion delete for {form_data.file_id}: {e}')
++        # --- END EXTERNAL INGESTION PATCH ---
++
+     if knowledge:
+         return KnowledgeFilesResponse(
+             **knowledge.model_dump(),
+@@ -1194,6 +1218,7 @@ class SyncCleanupForm(BaseModel):
+ 
+ @router.post('/{id}/sync/cleanup')
+ async def sync_knowledge_cleanup(
++    request: Request,
+     id: str,
+     form_data: SyncCleanupForm,
+     user=Depends(get_verified_user),
+@@ -1233,6 +1258,28 @@ async def sync_knowledge_cleanup(
+             except Exception:
+                 pass
+ 
++            # --- BEGIN EXTERNAL INGESTION PATCH ---
++            # Stale file permanently deleted during sync — clean up its vectors
++            # in the external ingestion service too. Best-effort, never raises.
++            _cfg = request.app.state.config
++            if _cfg.EXTERNAL_INGESTION_ENGINE == 'external' and _cfg.EXTERNAL_INGESTION_URL:
++                try:
++                    _timeout = (
++                        int(_cfg.EXTERNAL_INGESTION_TIMEOUT)
++                        if _cfg.EXTERNAL_INGESTION_TIMEOUT
++                        else 300
++                    )
++                    await asyncio.to_thread(
++                        delete_file_external_ingestion,
++                        url=_cfg.EXTERNAL_INGESTION_URL,
++                        api_key=_cfg.EXTERNAL_INGESTION_API_KEY,
++                        file_id=file_id,
++                        timeout=_timeout,
++                    )
++                except Exception as e:
++                    log.debug(f'external ingestion delete for {file_id}: {e}')
++            # --- END EXTERNAL INGESTION PATCH ---
++
+     # ── Remove orphaned directories (children before parents) ──
+     for dir_id in reversed(form_data.dir_ids):
+         await Knowledges.delete_directory(dir_id, move_files_to_parent=False, db=db)
+diff --git a/backend/open_webui/routers/retrieval.py b/backend/open_webui/routers/retrieval.py
+index 70f6cf6309b..7a465fbfd28 100644
+--- a/backend/open_webui/routers/retrieval.py
++++ b/backend/open_webui/routers/retrieval.py
+@@ -33,6 +33,11 @@
+     RecursiveCharacterTextSplitter,
+     TokenTextSplitter,
+ )
++
++# --- BEGIN EXTERNAL INGESTION PATCH ---
++from open_webui.retrieval.external import process_file_external_ingestion
++# --- END EXTERNAL INGESTION PATCH ---
++
+ from open_webui.config import (
+     DEFAULT_LOCALE,
+     ENV,
+@@ -474,6 +479,21 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
+         'RAG_EXTERNAL_RERANKER_URL': request.app.state.config.RAG_EXTERNAL_RERANKER_URL,
+         'RAG_EXTERNAL_RERANKER_API_KEY': request.app.state.config.RAG_EXTERNAL_RERANKER_API_KEY,
+         'RAG_EXTERNAL_RERANKER_TIMEOUT': request.app.state.config.RAG_EXTERNAL_RERANKER_TIMEOUT,
++        # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++        'RAG_RETRIEVAL_ENGINE': request.app.state.config.RAG_RETRIEVAL_ENGINE,
++        'RAG_EXTERNAL_RETRIEVAL_URL': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_URL,
++        'RAG_EXTERNAL_RETRIEVAL_API_KEY': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY,
++        'RAG_EXTERNAL_RETRIEVAL_TIMEOUT': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
++        'RAG_EXTERNAL_BYPASS_QUERY_GENERATION': request.app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION,
++        'RAG_EXTERNAL_MESSAGE_COUNT': request.app.state.config.RAG_EXTERNAL_MESSAGE_COUNT,
++        'RAG_EXTERNAL_USER_MESSAGES_ONLY': request.app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY,
++        # --- END EXTERNAL RETRIEVAL PATCH ---
++        # --- BEGIN EXTERNAL INGESTION PATCH ---
++        'EXTERNAL_INGESTION_ENGINE': request.app.state.config.EXTERNAL_INGESTION_ENGINE,
++        'EXTERNAL_INGESTION_URL': request.app.state.config.EXTERNAL_INGESTION_URL,
++        'EXTERNAL_INGESTION_API_KEY': request.app.state.config.EXTERNAL_INGESTION_API_KEY,
++        'EXTERNAL_INGESTION_TIMEOUT': request.app.state.config.EXTERNAL_INGESTION_TIMEOUT,
++        # --- END EXTERNAL INGESTION PATCH ---
+         # Chunking settings
+         'TEXT_SPLITTER': request.app.state.config.TEXT_SPLITTER,
+         'ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER': request.app.state.config.ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER,
+@@ -692,6 +712,23 @@ class ConfigForm(BaseModel):
+     RAG_EXTERNAL_RERANKER_API_KEY: str | None = None
+     RAG_EXTERNAL_RERANKER_TIMEOUT: str | None = None
+ 
++    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++    RAG_RETRIEVAL_ENGINE: Optional[str] = None
++    RAG_EXTERNAL_RETRIEVAL_URL: Optional[str] = None
++    RAG_EXTERNAL_RETRIEVAL_API_KEY: Optional[str] = None
++    RAG_EXTERNAL_RETRIEVAL_TIMEOUT: Optional[str] = None
++    RAG_EXTERNAL_BYPASS_QUERY_GENERATION: Optional[bool] = None
++    RAG_EXTERNAL_MESSAGE_COUNT: Optional[int] = None
++    RAG_EXTERNAL_USER_MESSAGES_ONLY: Optional[bool] = None
++    # --- END EXTERNAL RETRIEVAL PATCH ---
++
++    # --- BEGIN EXTERNAL INGESTION PATCH ---
++    EXTERNAL_INGESTION_ENGINE: Optional[str] = None
++    EXTERNAL_INGESTION_URL: Optional[str] = None
++    EXTERNAL_INGESTION_API_KEY: Optional[str] = None
++    EXTERNAL_INGESTION_TIMEOUT: Optional[str] = None
++    # --- END EXTERNAL INGESTION PATCH ---
++
+     # Chunking settings
+     TEXT_SPLITTER: str | None = None
+     ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: bool | None = None
+@@ -955,6 +992,76 @@ async def update_rag_config(request: Request, form_data: ConfigForm, user=Depend
+         else request.app.state.config.RAG_RERANKING_BATCH_SIZE
+     )
+ 
++    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++    request.app.state.config.RAG_RETRIEVAL_ENGINE = (
++        form_data.RAG_RETRIEVAL_ENGINE
++        if form_data.RAG_RETRIEVAL_ENGINE is not None
++        else request.app.state.config.RAG_RETRIEVAL_ENGINE
++    )
++
++    request.app.state.config.RAG_EXTERNAL_RETRIEVAL_URL = (
++        form_data.RAG_EXTERNAL_RETRIEVAL_URL
++        if form_data.RAG_EXTERNAL_RETRIEVAL_URL is not None
++        else request.app.state.config.RAG_EXTERNAL_RETRIEVAL_URL
++    )
++
++    request.app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY = (
++        form_data.RAG_EXTERNAL_RETRIEVAL_API_KEY
++        if form_data.RAG_EXTERNAL_RETRIEVAL_API_KEY is not None
++        else request.app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY
++    )
++
++    request.app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT = (
++        form_data.RAG_EXTERNAL_RETRIEVAL_TIMEOUT
++        if form_data.RAG_EXTERNAL_RETRIEVAL_TIMEOUT is not None
++        else request.app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT
++    )
++
++    request.app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION = (
++        form_data.RAG_EXTERNAL_BYPASS_QUERY_GENERATION
++        if form_data.RAG_EXTERNAL_BYPASS_QUERY_GENERATION is not None
++        else request.app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION
++    )
++
++    request.app.state.config.RAG_EXTERNAL_MESSAGE_COUNT = (
++        form_data.RAG_EXTERNAL_MESSAGE_COUNT
++        if form_data.RAG_EXTERNAL_MESSAGE_COUNT is not None
++        else request.app.state.config.RAG_EXTERNAL_MESSAGE_COUNT
++    )
++
++    request.app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY = (
++        form_data.RAG_EXTERNAL_USER_MESSAGES_ONLY
++        if form_data.RAG_EXTERNAL_USER_MESSAGES_ONLY is not None
++        else request.app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY
++    )
++    # --- END EXTERNAL RETRIEVAL PATCH ---
++
++    # --- BEGIN EXTERNAL INGESTION PATCH ---
++    request.app.state.config.EXTERNAL_INGESTION_ENGINE = (
++        form_data.EXTERNAL_INGESTION_ENGINE
++        if form_data.EXTERNAL_INGESTION_ENGINE is not None
++        else request.app.state.config.EXTERNAL_INGESTION_ENGINE
++    )
++
++    request.app.state.config.EXTERNAL_INGESTION_URL = (
++        form_data.EXTERNAL_INGESTION_URL
++        if form_data.EXTERNAL_INGESTION_URL is not None
++        else request.app.state.config.EXTERNAL_INGESTION_URL
++    )
++
++    request.app.state.config.EXTERNAL_INGESTION_API_KEY = (
++        form_data.EXTERNAL_INGESTION_API_KEY
++        if form_data.EXTERNAL_INGESTION_API_KEY is not None
++        else request.app.state.config.EXTERNAL_INGESTION_API_KEY
++    )
++
++    request.app.state.config.EXTERNAL_INGESTION_TIMEOUT = (
++        form_data.EXTERNAL_INGESTION_TIMEOUT
++        if form_data.EXTERNAL_INGESTION_TIMEOUT is not None
++        else request.app.state.config.EXTERNAL_INGESTION_TIMEOUT
++    )
++    # --- END EXTERNAL INGESTION PATCH ---
++
+     log.info(
+         f'Updating reranking model: {request.app.state.config.RAG_RERANKING_MODEL} to {form_data.RAG_RERANKING_MODEL}'
+     )
+@@ -1175,6 +1282,21 @@ async def update_rag_config(request: Request, form_data: ConfigForm, user=Depend
+         'RAG_EXTERNAL_RERANKER_URL': request.app.state.config.RAG_EXTERNAL_RERANKER_URL,
+         'RAG_EXTERNAL_RERANKER_API_KEY': request.app.state.config.RAG_EXTERNAL_RERANKER_API_KEY,
+         'RAG_EXTERNAL_RERANKER_TIMEOUT': request.app.state.config.RAG_EXTERNAL_RERANKER_TIMEOUT,
++        # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++        'RAG_RETRIEVAL_ENGINE': request.app.state.config.RAG_RETRIEVAL_ENGINE,
++        'RAG_EXTERNAL_RETRIEVAL_URL': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_URL,
++        'RAG_EXTERNAL_RETRIEVAL_API_KEY': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_API_KEY,
++        'RAG_EXTERNAL_RETRIEVAL_TIMEOUT': request.app.state.config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
++        'RAG_EXTERNAL_BYPASS_QUERY_GENERATION': request.app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION,
++        'RAG_EXTERNAL_MESSAGE_COUNT': request.app.state.config.RAG_EXTERNAL_MESSAGE_COUNT,
++        'RAG_EXTERNAL_USER_MESSAGES_ONLY': request.app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY,
++        # --- END EXTERNAL RETRIEVAL PATCH ---
++        # --- BEGIN EXTERNAL INGESTION PATCH ---
++        'EXTERNAL_INGESTION_ENGINE': request.app.state.config.EXTERNAL_INGESTION_ENGINE,
++        'EXTERNAL_INGESTION_URL': request.app.state.config.EXTERNAL_INGESTION_URL,
++        'EXTERNAL_INGESTION_API_KEY': request.app.state.config.EXTERNAL_INGESTION_API_KEY,
++        'EXTERNAL_INGESTION_TIMEOUT': request.app.state.config.EXTERNAL_INGESTION_TIMEOUT,
++        # --- END EXTERNAL INGESTION PATCH ---
+         # Chunking settings
+         'TEXT_SPLITTER': request.app.state.config.TEXT_SPLITTER,
+         'CHUNK_SIZE': request.app.state.config.CHUNK_SIZE,
+@@ -1591,6 +1713,19 @@ async def process_file(
+             else:
+                 await _validate_collection_access([collection_name], user, access_type='write')
+ 
++            # --- BEGIN COLLECTION ACCESS PATCH ---
++            # Enforce ownership on the write path. /query/doc and
++            # /query/collection already validate via
++            # _validate_collection_access; the /process/file write path
++            # didn't, so any authenticated user could write embeddings
++            # into another tenant's collection by supplying
++            # user-memory-<victim_uid> or file-<victim_file_id> in
++            # ProcessFileForm.collection_name. Reads were gated; writes
++            # were not.
++            # Ref: ingestion-service sec.md Finding 2 (cross-tenant write).
++            _validate_collection_access([collection_name], user)
++            # --- END COLLECTION ACCESS PATCH ---
++
+             if form_data.content:
+                 # Update the content in the file
+                 # Usage: /files/{file_id}/data/content/update, /files/ (audio file upload pipeline)
+@@ -1709,25 +1844,86 @@ async def process_file(
+                     await db.commit()
+ 
+                     # External embedding API takes time (5-60s+).
+-                    # Subsequent updates use fresh async sessions.
+-                    # NOTE: save_docs_to_vector_db is a sync function that
+-                    # calls asyncio.run_coroutine_threadsafe(..., main_loop).result()
+-                    # which blocks the calling thread.  We MUST run it in a
+-                    # worker thread to avoid deadlocking the event loop.
+-                    result = await run_in_threadpool(
+-                        save_docs_to_vector_db,
+-                        request,
+-                        docs=docs,
+-                        collection_name=collection_name,
+-                        metadata={
+-                            'file_id': file.id,
+-                            'name': file.filename,
+-                            'hash': hash,
+-                        },
+-                        add=(True if form_data.collection_name else False),
+-                        user=user,
++
++                    # --- BEGIN EXTERNAL INGESTION PATCH ---
++                    # When EXTERNAL_INGESTION_ENGINE == "external", delegate
++                    # chunk + embed + vector-store to the external ingestion
++                    # service. Pre-extracted content (form_data.content) keeps
++                    # the in-process pipeline; everything else (fresh upload,
++                    # KB add/update, reindex) routes to the external service,
++                    # which is idempotent per file_id via overwrite=true.
++                    _use_external_ingest = (
++                        request.app.state.config.EXTERNAL_INGESTION_ENGINE == 'external'
++                        and not form_data.content
++                        and bool(file.path)
+                     )
+-                    log.info(f'added {len(docs)} items to collection {collection_name}')
++
++                    if _use_external_ingest:
++                        _s3_bucket, _s3_key = None, None
++                        if file.path.startswith('s3://'):
++                            _without_scheme = file.path[len('s3://'):]
++                            if '/' in _without_scheme:
++                                _s3_bucket, _s3_key = _without_scheme.split('/', 1)
++
++                        # Reindex / KB-add paths skip the fresh-upload branch
++                        # above, so the local `file_path` variable may be
++                        # unset. Fetch a local copy on demand for multipart
++                        # fallback; S3 mode doesn't need it.
++                        _local_file_path = None
++                        if not _s3_bucket:
++                            try:
++                                _local_file_path = await asyncio.to_thread(
++                                    Storage.get_file, file.path
++                                )
++                            except Exception:
++                                _local_file_path = None
++
++                        _timeout_str = request.app.state.config.EXTERNAL_INGESTION_TIMEOUT
++                        _timeout = int(_timeout_str) if _timeout_str else 300
++
++                        _ingest_result = await asyncio.to_thread(
++                            process_file_external_ingestion,
++                            url=request.app.state.config.EXTERNAL_INGESTION_URL,
++                            api_key=request.app.state.config.EXTERNAL_INGESTION_API_KEY,
++                            file_id=file.id,
++                            filename=file.filename,
++                            collection_name=collection_name,
++                            user_id=file.user_id,
++                            local_file_path=_local_file_path,
++                            s3_bucket=_s3_bucket,
++                            s3_key=_s3_key,
++                            timeout=_timeout,
++                        )
++
++                        result = bool(_ingest_result and _ingest_result.get('status'))
++                        if not result:
++                            _err = (_ingest_result or {}).get('error') or 'External ingestion failed'
++                            raise Exception(_err)
++                        log.info(
++                            f"external ingestion completed for file {file.id}: "
++                            f"chunks={(_ingest_result or {}).get('chunks_count')}"
++                        )
++                    else:
++                        # Subsequent updates use fresh async sessions.
++                        # NOTE: save_docs_to_vector_db is a sync function that
++                        # calls asyncio.run_coroutine_threadsafe(..., main_loop).result()
++                        # which blocks the calling thread.  We MUST run it in a
++                        # worker thread to avoid deadlocking the event loop.
++                        result = await run_in_threadpool(
++                            save_docs_to_vector_db,
++                            request,
++                            docs=docs,
++                            collection_name=collection_name,
++                            metadata={
++                                'file_id': file.id,
++                                'name': file.filename,
++                                'hash': hash,
++                            },
++                            add=(True if form_data.collection_name else False),
++                            user=user,
++                        )
++                        log.info(f'added {len(docs)} items to collection {collection_name}')
++                    # --- END EXTERNAL INGESTION PATCH ---
+ 
+                     if result:
+                         # Fresh session for the final update.
+diff --git a/backend/open_webui/tools/builtin.py b/backend/open_webui/tools/builtin.py
+index 965f333dfcc..13a586bae60 100644
+--- a/backend/open_webui/tools/builtin.py
++++ b/backend/open_webui/tools/builtin.py
+@@ -2343,6 +2343,9 @@ async def query_knowledge_files(
+     __request__: Request = None,
+     __user__: dict = None,
+     __model_knowledge__: list[dict] = None,
++    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++    __messages__: list = None,
++    # --- END EXTERNAL RETRIEVAL PATCH ---
+ ) -> str:
+     """
+     Search knowledge base files using semantic/vector search. Searches across collections (KBs),
+@@ -2389,8 +2392,13 @@ async def query_knowledge_files(
+         user_role = __user__.get('role', 'user')
+         user_group_ids = [group.id for group in await Groups.get_groups_by_member_id(user_id)]
+ 
++        cfg = __request__.app.state.config
++        use_external = cfg.RAG_RETRIEVAL_ENGINE == 'external'
++
++        # The external retrieval engine embeds server-side, so a local embedding
++        # function is only required for the internal vector-DB path.
+         embedding_function = __request__.app.state.EMBEDDING_FUNCTION
+-        if not embedding_function:
++        if not use_external and not embedding_function:
+             return json.dumps({'error': 'Embedding function not configured'})
+ 
+         collection_names = []
+@@ -2484,13 +2492,49 @@ async def query_knowledge_files(
+ 
+         # Query vector collections if any
+         if collection_names:
+-            query_results = await query_collection(
+-                __request__,
+-                collection_names=collection_names,
+-                queries=[query],
+-                embedding_function=embedding_function,
+-                k=count,
+-            )
++            if use_external:
++                # Route to the external retrieval engine, mirroring the patch in
++                # retrieval/utils.py:get_sources_from_items. The LLM already
++                # generated `query` via the tool call, but we still forward the
++                # recent conversation so the external service's agentic pipeline
++                # has context for its own query generation. Trimming mirrors the
++                # chat_completion_files_handler patch so both paths honour the
++                # same RAG_EXTERNAL_MESSAGE_COUNT / USER_MESSAGES_ONLY settings.
++                from open_webui.retrieval.external import query_external_retrieval
++
++                messages_for_external = None
++                if __messages__:
++                    msg_count = cfg.RAG_EXTERNAL_MESSAGE_COUNT
++                    user_only = cfg.RAG_EXTERNAL_USER_MESSAGES_ONLY
++                    candidate_messages = __messages__
++                    if user_only:
++                        candidate_messages = [m for m in candidate_messages if m.get('role') == 'user']
++                    messages_for_external = [
++                        {'role': m.get('role', ''), 'content': m.get('content', '')}
++                        for m in candidate_messages[-msg_count:]
++                    ]
++
++                # query_external_retrieval is sync (requests-based); offload so
++                # the async caller's event loop stays free.
++                query_results = await asyncio.to_thread(
++                    query_external_retrieval,
++                    url=cfg.RAG_EXTERNAL_RETRIEVAL_URL,
++                    api_key=cfg.RAG_EXTERNAL_RETRIEVAL_API_KEY,
++                    queries=[query],
++                    collection_names=collection_names,
++                    k=count,
++                    timeout=cfg.RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
++                    user=__user__,
++                    messages=messages_for_external,
++                )
++            else:
++                query_results = await query_collection(
++                    __request__,
++                    collection_names=collection_names,
++                    queries=[query],
++                    embedding_function=embedding_function,
++                    k=count,
++                )
+ 
+             if query_results and 'documents' in query_results:
+                 documents = query_results.get('documents', [[]])[0]
+diff --git a/backend/open_webui/utils/middleware.py b/backend/open_webui/utils/middleware.py
+index 63de31fbbac..100d0b5baf0 100644
+--- a/backend/open_webui/utils/middleware.py
++++ b/backend/open_webui/utils/middleware.py
+@@ -1965,46 +1965,67 @@ async def chat_completion_files_handler(
+         all_full_context = all(item.get('context') == 'full' for item in files)
+ 
+         queries = []
++        # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++        messages_for_external = None
++        # --- END EXTERNAL RETRIEVAL PATCH ---
+         if not all_full_context:
+-            try:
+-                queries_response = await generate_queries(
+-                    request,
+-                    {
+-                        'model': body['model'],
+-                        'messages': body['messages'],
+-                        'type': 'retrieval',
+-                        'chat_id': body.get('metadata', {}).get('chat_id'),
+-                    },
+-                    user,
+-                )
+-                queries_response = queries_response['choices'][0]['message']['content']
+-
++            # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++            if (
++                request.app.state.config.RAG_RETRIEVAL_ENGINE == 'external'
++                and request.app.state.config.RAG_EXTERNAL_BYPASS_QUERY_GENERATION
++            ):
++                # Skip LLM query generation — send raw messages to external service
++                msg_count = request.app.state.config.RAG_EXTERNAL_MESSAGE_COUNT
++                user_only = request.app.state.config.RAG_EXTERNAL_USER_MESSAGES_ONLY
++                candidate_messages = body['messages']
++                if user_only:
++                    candidate_messages = [m for m in candidate_messages if m.get('role') == 'user']
++                messages_for_external = [
++                    {'role': m.get('role', ''), 'content': m.get('content', '')}
++                    for m in candidate_messages[-msg_count:]
++                ]
++                # queries stays empty -> falls through to fallback below
++            # --- END EXTERNAL RETRIEVAL PATCH ---
++            else:
+                 try:
+-                    bracket_start = queries_response.rfind('{')
+-                    bracket_end = queries_response.rfind('}') + 1
++                    queries_response = await generate_queries(
++                        request,
++                        {
++                            'model': body['model'],
++                            'messages': body['messages'],
++                            'type': 'retrieval',
++                            'chat_id': body.get('metadata', {}).get('chat_id'),
++                        },
++                        user,
++                    )
++                    queries_response = queries_response['choices'][0]['message']['content']
+ 
+-                    if bracket_start == -1 or bracket_end == -1:
+-                        raise Exception('No JSON object found in the response')
++                    try:
++                        bracket_start = queries_response.find('{')
++                        bracket_end = queries_response.rfind('}') + 1
+ 
+-                    queries_response = queries_response[bracket_start:bracket_end]
+-                    queries_response = json.loads(queries_response)
+-                except Exception as e:
+-                    queries_response = {'queries': [queries_response]}
++                        if bracket_start == -1 or bracket_end == -1:
++                            raise Exception('No JSON object found in the response')
+ 
+-                queries = queries_response.get('queries', [])
+-            except Exception:
+-                pass
++                        queries_response = queries_response[bracket_start:bracket_end]
++                        queries_response = json.loads(queries_response)
++                    except Exception as e:
++                        queries_response = {'queries': [queries_response]}
+ 
+-            await __event_emitter__(
+-                {
+-                    'type': 'status',
+-                    'data': {
+-                        'action': 'queries_generated',
+-                        'queries': queries,
+-                        'done': False,
+-                    },
+-                }
+-            )
++                    queries = queries_response.get('queries', [])
++                except:
++                    pass
++
++                await __event_emitter__(
++                    {
++                        'type': 'status',
++                        'data': {
++                            'action': 'queries_generated',
++                            'queries': queries,
++                            'done': False,
++                        },
++                    }
++                )
+ 
+         if len(queries) == 0:
+             queries = [get_last_user_message(body['messages']) or '']
+@@ -2030,6 +2051,9 @@ async def chat_completion_files_handler(
+                 hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
+                 full_context=all_full_context or request.app.state.config.RAG_FULL_CONTEXT,
+                 user=user,
++                # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++                messages=messages_for_external,
++                # --- END EXTERNAL RETRIEVAL PATCH ---
+             )
+         except Exception as e:
+             log.exception(e)
+@@ -2852,6 +2876,12 @@ async def tool_function(**kwargs):
+                 {
+                     **extra_params,
+                     '__event_emitter__': event_emitter,
++                    # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++                    # Forward the conversation so builtin knowledge tools
++                    # (query_knowledge_files) can pass it to the external
++                    # retrieval service for its own query generation.
++                    '__messages__': form_data['messages'],
++                    # --- END EXTERNAL RETRIEVAL PATCH ---
+                     '__skill_ids__': [s.id for s in available_skills if s.id not in user_skill_ids],
+                 },
+                 features,
+diff --git a/backend/open_webui/utils/tools.py b/backend/open_webui/utils/tools.py
+index 2bfa1940f94..639d47e8010 100644
+--- a/backend/open_webui/utils/tools.py
++++ b/backend/open_webui/utils/tools.py
+@@ -631,6 +631,13 @@ async def has_user_permission(feature_key: str) -> bool:
+                 '__chat_id__': extra_params.get('__chat_id__'),
+                 '__message_id__': extra_params.get('__message_id__'),
+                 '__model_knowledge__': model_knowledge,
++                # --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++                # Forwarded so query_knowledge_files can hand the conversation
++                # to the external retrieval service (it only reaches the tool
++                # because the tool declares __messages__ in its signature; see
++                # get_async_tool_function_and_apply_extra_params).
++                '__messages__': extra_params.get('__messages__', []),
++                # --- END EXTERNAL RETRIEVAL PATCH ---
+             },
+         )
+ 
+diff --git a/src/lib/apis/retrieval/index.ts b/src/lib/apis/retrieval/index.ts
+index a84e7b68225..01cf5d6ee88 100644
+--- a/src/lib/apis/retrieval/index.ts
++++ b/src/lib/apis/retrieval/index.ts
+@@ -58,6 +58,15 @@ type RAGConfigForm = {
+ 	content_extraction?: ContentExtractConfigForm;
+ 	web_loader_ssl_verification?: boolean;
+ 	youtube?: YoutubeConfigForm;
++	// --- BEGIN EXTERNAL RETRIEVAL PATCH ---
++	RAG_RETRIEVAL_ENGINE?: string;
++	RAG_EXTERNAL_RETRIEVAL_URL?: string;
++	RAG_EXTERNAL_RETRIEVAL_API_KEY?: string;
++	RAG_EXTERNAL_RETRIEVAL_TIMEOUT?: string;
++	RAG_EXTERNAL_BYPASS_QUERY_GENERATION?: boolean;
++	RAG_EXTERNAL_MESSAGE_COUNT?: number;
++	RAG_EXTERNAL_USER_MESSAGES_ONLY?: boolean;
++	// --- END EXTERNAL RETRIEVAL PATCH ---
+ };
+ 
+ export const updateRAGConfig = async (token: string, payload: RAGConfigForm) => {
+diff --git a/src/lib/components/admin/Settings/Documents.svelte b/src/lib/components/admin/Settings/Documents.svelte
+index 92706ff94d8..2576521a2f8 100644
+--- a/src/lib/components/admin/Settings/Documents.svelte
++++ b/src/lib/components/admin/Settings/Documents.svelte
+@@ -351,6 +351,58 @@
+ 
+ 					<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />
+ 
++					<!-- BEGIN EXTERNAL INGESTION PATCH -->
++					<div class="mb-2.5 flex flex-col w-full justify-between">
++						<div class="flex w-full justify-between">
++							<div class="self-center text-xs font-medium">
++								{$i18n.t('Ingestion Engine')}
++							</div>
++							<div class="flex items-center relative">
++								<select
++									class="w-fit pr-8 rounded-sm px-2 p-1 text-xs bg-transparent outline-hidden text-right"
++									bind:value={RAGConfig.EXTERNAL_INGESTION_ENGINE}
++									placeholder={$i18n.t('Select an ingestion engine')}
++								>
++									<option value="">{$i18n.t('Default (Built-in pipeline)')}</option>
++									<option value="external">{$i18n.t('External')}</option>
++								</select>
++							</div>
++						</div>
++
++						{#if RAGConfig.EXTERNAL_INGESTION_ENGINE === 'external'}
++							<div class="my-0.5 flex gap-2 pr-2">
++								<input
++									class="flex-1 w-full text-sm bg-transparent outline-hidden"
++									placeholder={$i18n.t('API Base URL')}
++									bind:value={RAGConfig.EXTERNAL_INGESTION_URL}
++									required
++								/>
++
++								<SensitiveInput
++									placeholder={$i18n.t('API Key')}
++									bind:value={RAGConfig.EXTERNAL_INGESTION_API_KEY}
++									required={false}
++								/>
++							</div>
++
++							<div class="mb-2.5 flex w-full justify-between">
++								<div class="self-center text-xs font-medium">
++									{$i18n.t('Request Timeout (s)')}
++								</div>
++								<div class="flex items-center relative">
++									<input
++										class="w-20 text-sm bg-transparent outline-hidden text-right"
++										type="number"
++										min="1"
++										bind:value={RAGConfig.EXTERNAL_INGESTION_TIMEOUT}
++									/>
++								</div>
++							</div>
++						{/if}
++					</div>
++					<!-- END EXTERNAL INGESTION PATCH -->
++
++					{#if RAGConfig.EXTERNAL_INGESTION_ENGINE !== 'external'}
+ 					<div class="mb-2.5 flex flex-col w-full justify-between">
+ 						<div class="flex w-full justify-between mb-1">
+ 							<div class="self-center text-xs font-medium">
+@@ -789,6 +841,7 @@
+ 							</div>
+ 						{/if}
+ 					</div>
++					{/if}
+ 
+ 					<div class="  mb-2.5 flex w-full justify-between">
+ 						<div class=" self-center text-xs font-medium">
+@@ -811,7 +864,7 @@
+ 						</div>
+ 					</div>
+ 
+-					{#if !RAGConfig.BYPASS_EMBEDDING_AND_RETRIEVAL}
++					{#if !RAGConfig.BYPASS_EMBEDDING_AND_RETRIEVAL && RAGConfig.EXTERNAL_INGESTION_ENGINE !== 'external'}
+ 						<div class="  mb-2.5 flex w-full justify-between">
+ 							<div class=" self-center text-xs font-medium">{$i18n.t('Text Splitter')}</div>
+ 							<div class="flex items-center relative">
+@@ -913,6 +966,14 @@
+ 					<div class="mb-3">
+ 						<div class=" mt-0.5 mb-2.5 text-base font-medium">{$i18n.t('Embedding')}</div>
+ 
++						{#if RAGConfig.EXTERNAL_INGESTION_ENGINE === 'external'}
++							<div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
++								{$i18n.t(
++									'When external ingestion is enabled, this model is used only to encode queries at retrieval time. It must match the embedding model configured in the ingestion service.'
++								)}
++							</div>
++						{/if}
++
+ 						<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />
+ 
+ 						<div class="  mb-2.5 flex flex-col w-full justify-between">
+@@ -1146,6 +1207,78 @@
+ 						</div>
+ 
+ 						{#if !RAGConfig.RAG_FULL_CONTEXT}
++							<!-- BEGIN EXTERNAL RETRIEVAL PATCH -->
++							<div class="mb-2.5 flex flex-col w-full justify-between">
++								<div class="flex w-full justify-between">
++									<div class="self-center text-xs font-medium">
++										{$i18n.t('Retrieval Engine')}
++									</div>
++									<div class="flex items-center relative">
++										<select
++											class="w-fit pr-8 rounded-sm px-2 p-1 text-xs bg-transparent outline-hidden text-right"
++											bind:value={RAGConfig.RAG_RETRIEVAL_ENGINE}
++											placeholder={$i18n.t('Select a retrieval engine')}
++										>
++											<option value="">{$i18n.t('Default (Built-in Vector DB)')}</option>
++											<option value="external">{$i18n.t('External')}</option>
++										</select>
++									</div>
++								</div>
++
++								{#if RAGConfig.RAG_RETRIEVAL_ENGINE === 'external'}
++									<div class="my-0.5 flex gap-2 pr-2">
++										<input
++											class="flex-1 w-full text-sm bg-transparent outline-hidden"
++											placeholder={$i18n.t('API Base URL')}
++											bind:value={RAGConfig.RAG_EXTERNAL_RETRIEVAL_URL}
++											required
++										/>
++
++										<SensitiveInput
++											placeholder={$i18n.t('API Key')}
++											bind:value={RAGConfig.RAG_EXTERNAL_RETRIEVAL_API_KEY}
++											required={false}
++										/>
++									</div>
++
++									<div class="mb-2.5 flex w-full justify-between">
++										<div class="self-center text-xs font-medium">
++											{$i18n.t('Bypass Query Generation')}
++										</div>
++										<div class="flex items-center relative">
++											<Switch bind:state={RAGConfig.RAG_EXTERNAL_BYPASS_QUERY_GENERATION} />
++										</div>
++									</div>
++
++									{#if RAGConfig.RAG_EXTERNAL_BYPASS_QUERY_GENERATION}
++										<div class="mb-2.5 flex w-full justify-between">
++											<div class="self-center text-xs font-medium">
++												{$i18n.t('Message Count')}
++											</div>
++											<div class="flex items-center relative">
++												<input
++													class="w-20 text-sm bg-transparent outline-hidden text-right"
++													type="number"
++													min="1"
++													bind:value={RAGConfig.RAG_EXTERNAL_MESSAGE_COUNT}
++												/>
++											</div>
++										</div>
++
++										<div class="mb-2.5 flex w-full justify-between">
++											<div class="self-center text-xs font-medium">
++												{$i18n.t('User Messages Only')}
++											</div>
++											<div class="flex items-center relative">
++												<Switch bind:state={RAGConfig.RAG_EXTERNAL_USER_MESSAGES_ONLY} />
++											</div>
++										</div>
++									{/if}
++								{/if}
++							</div>
++							<!-- END EXTERNAL RETRIEVAL PATCH -->
++
++							{#if RAGConfig.RAG_RETRIEVAL_ENGINE !== 'external'}
+ 							<div class="  mb-2.5 flex w-full justify-between">
+ 								<div class=" self-center text-xs font-medium">{$i18n.t('Hybrid Search')}</div>
+ 								<div class="flex items-center relative">
+@@ -1229,6 +1362,7 @@
+ 									</div>
+ 								</div>
+ 							{/if}
++							{/if}
+ 
+ 							<div class="  mb-2.5 flex w-full justify-between">
+ 								<div class=" self-center text-xs font-medium">

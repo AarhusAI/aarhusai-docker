@@ -1,0 +1,228 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 57f4712027c..ecb809b8502 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -2494,6 +2494,32 @@ def reachable(host: str, port: int) -> bool:
+     (False if not WEBUI_AUTH else os.getenv('ENABLE_SIGNUP', 'True').lower() == 'true'),
+ )
+ 
++
++# PATCH EXTRA LOGIN INFO
++SYSTEM_REGISTER_URL = ConfigVar(
++    "SYSTEM_REGISTER_URL",
++    "ui.SYSTEM_REGISTER_URL",
++    os.environ.get("SYSTEM_REGISTER_URL", ""),
++)
++
++
++SYSTEM_REGISTER_GUIDE_URL = ConfigVar(
++    "SYSTEM_REGISTER_GUIDE_URL",
++    "ui.SYSTEM_REGISTER_GUIDE_URL",
++    os.environ.get("SYSTEM_REGISTER_GUIDE_URL", ""),
++)
++# /PATCH EXTRA LOGIN INFO
++
++
++# PATCH ADD LOGO TO SIDEBAR
++LOGO_URL = ConfigVar(
++    "LOGO_URL",
++    "ui.LOGO_URL",
++    os.environ.get("LOGO_URL", ""),
++)
++# /PATCH ADD LOGO TO SIDEBAR
++
++
+ ENABLE_LOGIN_FORM = ConfigVar(
+     'ENABLE_LOGIN_FORM',
+     'ui.enable_login_form',
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index e05497c6165..c13d2c0a9e8 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -143,6 +143,13 @@
+     DEFAULT_MODEL_PARAMS,
+     DEFAULT_MODELS,
+     DEFAULT_PINNED_MODELS,
++    # PATCH EXTRA LOGIN INFO
++    SYSTEM_REGISTER_URL,
++    SYSTEM_REGISTER_GUIDE_URL,
++    # /PATCH EXTRA LOGIN INFO
++    # PATCH ADD LOGO TO SIDEBAR
++    LOGO_URL,
++    # /PATCH ADD LOGO TO SIDEBAR
+     DEFAULT_PROMPT_SUGGESTIONS,
+     DEFAULT_RAG_TEMPLATE,
+     DEFAULT_USER_ROLE,
+@@ -892,6 +899,18 @@ async def lifespan(app: FastAPI):
+ app.state.config.DEFAULT_USER_ROLE = DEFAULT_USER_ROLE
+ app.state.config.DEFAULT_GROUP_ID = DEFAULT_GROUP_ID
+ 
++
++# PATCH EXTRA LOGIN INFO
++app.state.config.SYSTEM_REGISTER_URL = SYSTEM_REGISTER_URL
++app.state.config.SYSTEM_REGISTER_GUIDE_URL = SYSTEM_REGISTER_GUIDE_URL
++# /PATCH EXTRA LOGIN INFO
++
++
++# PATCH ADD LOGO TO SIDEBAR
++app.state.config.LOGO_URL = LOGO_URL
++# /PATCH ADD LOGO TO SIDEBAR
++
++
+ app.state.config.PENDING_USER_OVERLAY_CONTENT = PENDING_USER_OVERLAY_CONTENT
+ app.state.config.PENDING_USER_OVERLAY_TITLE = PENDING_USER_OVERLAY_TITLE
+ 
+@@ -2406,6 +2425,16 @@ async def get_app_config(request: Request):
+             'providers': {name: config.get('name', name) for name, config in OAUTH_PROVIDERS.items()},
+             'auto_redirect': app.state.config.OAUTH_AUTO_REDIRECT,
+         },
++        # Environment variables for patches
++        'extended_features': {
++            # PATCH EXTRA LOGIN INFO
++            'system_register_url': app.state.config.SYSTEM_REGISTER_URL,
++            'system_register_guide_url': app.state.config.SYSTEM_REGISTER_GUIDE_URL,
++            # /PATCH EXTRA LOGIN INFO
++            # PATCH ADD LOGO TO SIDEBAR
++            'logo_url': app.state.config.LOGO_URL,
++            # /PATCH ADD LOGO TO SIDEBAR
++        },
+         'features': {
+             # --- Public: required by login/signup page pre-auth ---
+             'auth': WEBUI_AUTH,
+diff --git a/src/lib/components/layout/Sidebar.svelte b/src/lib/components/layout/Sidebar.svelte
+index f2329273aa2..6dc6b9ea515 100644
+--- a/src/lib/components/layout/Sidebar.svelte
++++ b/src/lib/components/layout/Sidebar.svelte
+@@ -675,6 +675,25 @@
+ 	};
+ 
+ 	const isWindows = /Windows/i.test(navigator.userAgent);
++
++	// PATCH ADD LOGO TO SIDEBAR
++	function IsJson(str) {
++		try {
++			JSON.parse(str);
++		} catch (e) {
++			return false;
++		}
++		return true;
++	}
++
++	function getUrl(str) {
++		if (IsJson(str)) {
++			return JSON.parse(str);
++		} else {
++			return str;
++		}
++	}
++	// /PATCH ADD LOGO TO SIDEBAR
+ </script>
+ 
+ <ArchivedChatsModal
+@@ -1593,7 +1612,9 @@
+ 				</Folder>
+ 			</div>
+ 
+-			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar">
++            <!-- PATCH ADD LOGO TO SIDEBAR: pb-[50px]-class added -->
++			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar pb-[50px]">
++                <!-- /PATCH ADD LOGO TO SIDEBAR -->
+ 				<div
+ 					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
+ 				></div>
+@@ -1642,6 +1663,21 @@
+ 				</div>
+ 			</div>
+ 		</div>
++		<!-- PATCH ADD LOGO TO SIDEBAR -->
++		<div class="relative">
++			<div
++				class="-mb-2 flex items-center py-2.5 px-4.5 w-full bg-gray-800 absolute left-0 bottom-0 z-20"
++			>
++				<div class="self-center mr-3">
++					<img
++						src={$config?.extended_features?.logo_url}
++						class="max-w-[150px] object-cover"
++						alt=""
++					/>
++				</div>
++			</div>
++		</div>
++		<!-- /PATCH ADD LOGO TO SIDEBAR -->
+ 	</div>
+ 
+ 	{#if !$mobile}
+diff --git a/src/lib/stores/index.ts b/src/lib/stores/index.ts
+index b87303c0b0e..23f3928039e 100644
+--- a/src/lib/stores/index.ts
++++ b/src/lib/stores/index.ts
+@@ -303,6 +303,18 @@ type Config = {
+ 		enable_version_update_check: boolean;
+ 		folder_max_file_count?: number;
+ 	};
++
++	// Environment variables for patches
++	extended_features: {
++		// PATCH EXTRA LOGIN INFO
++		system_register_url: string;
++		system_register_guide_url: string;
++		// /PATCH EXTRA LOGIN INFO
++		// PATCH ADD LOGO TO SIDEBAR
++		logo_url: string;
++		// /PATCH ADD LOGO TO SIDEBAR
++	};
++
+ 	oauth: {
+ 		providers: {
+ 			[key: string]: string;
+diff --git a/src/routes/auth/+page.svelte b/src/routes/auth/+page.svelte
+index e1bae7c3b7f..dfbf740774d 100644
+--- a/src/routes/auth/+page.svelte
++++ b/src/routes/auth/+page.svelte
+@@ -436,7 +436,45 @@
+ 									{/if}
+ 								</div>
+ 							</form>
+-
++							<!-- PATCH EXTRA LOGIN INFO -->
++							{#if $config?.extended_features?.system_register_url && $config?.extended_features?.system_register_guide_url}
++								<div
++									class="mx-4 px-3 flex justify-center items-center border border-gray-100 dark:border-gray-850 text-gray-800 dark:text-gary-100 bg-white dark:bg-gray-900"
++								>
++									<div class="flex flex-col md:items-center text-sm w-fit gap-1.5">
++										<div
++											class="m-4 bg-blue-500/20 text-blue-700 dark:text-blue-200 text-xs font-bold w-fit px-2 rounded-sm uppercase line-clamp-1 mr-0.5"
++										>
++											{$i18n.t('Info')}
++										</div>
++										<div class="text-xs text-gray-700 dark:text-white max-h-60 overflow-y-auto">
++											<div
++												class="text-xs text-gray-700 dark:text-white max-h-60 overflow-y-auto mb-2"
++											>
++												Du skal anmode om adgang til AarhusAI (AI-platform) i Aarhus Kommunes
++												systemregister, før du logger på første gang.
++											</div>
++											<div class="mb-2">
++												<a
++													target="_blank"
++													class="underline"
++													href="{$config?.extended_features?.system_register_url}"
++													>Anmod om adgang i Systemregisteret.</a
++												>
++											</div>
++											<div class="mb-2">
++												<a
++													target="_blank"
++													class="underline"
++													href="{$config?.extended_features?.system_register_guide_url}"
++													>Vejledning til at anmode om adgang i Systemregisteret på Serviceportalen.</a
++												>
++											</div>
++										</div>
++									</div>
++								</div>
++							{/if}
++							<!-- /PATCH EXTRA LOGIN INFO -->
+ 							{#if Object.keys($config?.oauth?.providers ?? {}).length > 0}
+ 								<div class="inline-flex items-center justify-center w-full">
+ 									<hr class="w-32 h-px my-4 border-0 dark:bg-gray-100/10 bg-gray-700/10" />

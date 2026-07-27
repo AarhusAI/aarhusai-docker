@@ -1,0 +1,138 @@
+diff --git a/backend/open_webui/routers/auths.py b/backend/open_webui/routers/auths.py
+index 434a6349de9..5bd4202d012 100644
+--- a/backend/open_webui/routers/auths.py
++++ b/backend/open_webui/routers/auths.py
+@@ -1240,17 +1240,8 @@ async def update_ldap_config(request: Request, form_data: LdapConfigForm, user=D
+ # create api key
+ @router.post('/api_key', response_model=ApiKey)
+ async def generate_api_key(
+-    request: Request, user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)
++    request: Request, user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)
+ ):
+-    if not request.app.state.config.ENABLE_API_KEYS or (
+-        user.role != 'admin'
+-        and not await has_permission(user.id, 'features.api_keys', request.app.state.config.USER_PERMISSIONS)
+-    ):
+-        raise HTTPException(
+-            status_code=status.HTTP_403_FORBIDDEN,
+-            detail=ERROR_MESSAGES.API_KEY_CREATION_NOT_ALLOWED,
+-        )
+-
+     api_key = create_api_key()
+     success = await Users.update_user_api_key_by_id(user.id, api_key, db=db)
+ 
+@@ -1264,13 +1255,12 @@ async def generate_api_key(
+ 
+ # delete api key
+ @router.delete('/api_key', response_model=bool)
+-async def delete_api_key(user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)):
++async def delete_api_key(user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)):
+     return await Users.delete_user_api_key_by_id(user.id, db=db)
+ 
+-
+ # get api key
+ @router.get('/api_key', response_model=ApiKey)
+-async def get_api_key(user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)):
++async def get_api_key(user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)):
+     api_key = await Users.get_user_api_key_by_id(user.id, db=db)
+     if api_key:
+         return {
+diff --git a/backend/open_webui/routers/users.py b/backend/open_webui/routers/users.py
+index 0b8da713df0..ac31ee52179 100644
+--- a/backend/open_webui/routers/users.py
++++ b/backend/open_webui/routers/users.py
+@@ -11,7 +11,7 @@
+ from open_webui.constants import ERROR_MESSAGES
+ from open_webui.env import ENABLE_PROFILE_IMAGE_URL_FORWARDING, PROFILE_IMAGE_ALLOWED_MIME_TYPES, STATIC_DIR
+ from open_webui.internal.db import get_async_session
+-from open_webui.models.auths import Auths
++from open_webui.models.auths import ApiKey, Auths
+ from open_webui.models.groups import Groups
+ from open_webui.models.oauth_sessions import OAuthSessions
+ from open_webui.models.users import (
+@@ -33,6 +33,7 @@
+ from open_webui.socket.main import disconnect_user_sessions
+ from open_webui.utils.access_control import get_permissions, has_permission
+ from open_webui.utils.auth import (
++    create_api_key,
+     get_admin_user,
+     get_password_hash,
+     get_verified_user,
+@@ -759,3 +760,57 @@ async def get_user_preview(
+             'total': len(all_tools),
+         },
+     }
++
++
++############################
++# Admin: User API Key Management
++############################
++
++@router.post("/{user_id}/api_key", response_model=ApiKey)
++async def generate_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    target_user = await Users.get_user_by_id(user_id, db=db)
++    if not target_user:
++        raise HTTPException(
++            status_code=status.HTTP_400_BAD_REQUEST,
++            detail=ERROR_MESSAGES.USER_NOT_FOUND,
++        )
++
++    api_key = create_api_key()
++    success = await Users.update_user_api_key_by_id(user_id, api_key, db=db)
++
++    if success:
++        return {"api_key": api_key}
++    else:
++        raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_API_KEY_ERROR)
++
++
++@router.get("/{user_id}/api_key", response_model=ApiKey)
++async def get_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    api_key = await Users.get_user_api_key_by_id(user_id, db=db)
++    if api_key:
++        return {"api_key": api_key}
++    else:
++        raise HTTPException(404, detail=ERROR_MESSAGES.API_KEY_NOT_FOUND)
++
++
++@router.delete("/{user_id}/api_key", response_model=bool)
++async def delete_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    target_user = await Users.get_user_by_id(user_id, db=db)
++    if not target_user:
++        raise HTTPException(
++            status_code=status.HTTP_400_BAD_REQUEST,
++            detail=ERROR_MESSAGES.USER_NOT_FOUND,
++        )
++    return await Users.delete_user_api_key_by_id(user_id, db=db)
+diff --git a/backend/open_webui/utils/auth.py b/backend/open_webui/utils/auth.py
+index 26cea6b45fc..7470d7c545c 100644
+--- a/backend/open_webui/utils/auth.py
++++ b/backend/open_webui/utils/auth.py
+@@ -409,14 +409,7 @@ async def get_current_user_by_api_key(request, api_key: str):
+             detail=ERROR_MESSAGES.INVALID_TOKEN,
+         )
+ 
+-    if not request.state.enable_api_keys or (
+-        user.role != 'admin'
+-        and not await has_permission(
+-            user.id,
+-            'features.api_keys',
+-            request.app.state.config.USER_PERMISSIONS,
+-        )
+-    ):
++    if not request.state.enable_api_keys:
+         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED)
+ 
+     # Enforce endpoint restrictions — checked here (not in middleware)

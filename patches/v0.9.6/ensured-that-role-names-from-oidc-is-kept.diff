@@ -1,0 +1,191 @@
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index e05497c6165..f02a86bc086 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -2512,7 +2512,7 @@ async def get_app_config(request: Request):
+                     else {}
+                 ),
+             }
+-            if user is not None and (user.role in ['admin', 'user'])
++            if user is not None and (user.role in ['admin', 'user', 'builder', 'local-admin'])
+             else {
+                 **(
+                     {
+diff --git a/backend/open_webui/routers/chats.py b/backend/open_webui/routers/chats.py
+index 2689aa6d2f9..b2f7062efe2 100644
+--- a/backend/open_webui/routers/chats.py
++++ b/backend/open_webui/routers/chats.py
+@@ -495,7 +495,7 @@ async def delete_all_user_chats(
+     user=Depends(get_verified_user),
+     db: AsyncSession = Depends(get_async_session),
+ ):
+-    if user.role == 'user' and not await has_permission(
++    if (user.role == 'user' or user.role == 'builder') and not await has_permission(
+         user.id, 'chat.delete', request.app.state.config.USER_PERMISSIONS
+     ):
+         raise HTTPException(
+diff --git a/backend/open_webui/routers/ollama.py b/backend/open_webui/routers/ollama.py
+index a4e166ba9ee..1d0a2a684f4 100644
+--- a/backend/open_webui/routers/ollama.py
++++ b/backend/open_webui/routers/ollama.py
+@@ -404,8 +404,8 @@ async def get_ollama_tags(
+         key = get_api_key(url_idx, url, request.app.state.config.OLLAMA_API_CONFIGS)
+         result = await send_request(f'{url}/api/tags', 'GET', key=key, user=user)
+ 
+-    if user.role == 'user' and not BYPASS_MODEL_ACCESS_CONTROL:
+-        result['models'] = await get_filtered_models(result, user)
++    if (user.role == 'user' or user.role == 'builder') and not BYPASS_MODEL_ACCESS_CONTROL:
++        models['models'] = await get_filtered_models(models, user)
+ 
+     return result
+ 
+@@ -1324,7 +1324,7 @@ async def get_openai_models(
+     now_ts = int(time.time())
+     models = [{'id': m['model'], 'object': 'model', 'created': now_ts, 'owned_by': 'openai'} for m in raw_models]
+ 
+-    if user.role == 'user' and not BYPASS_MODEL_ACCESS_CONTROL:
++    if (user.role == 'user' or user.role == 'builder') and not BYPASS_MODEL_ACCESS_CONTROL:
+         model_ids = [m['id'] for m in models]
+         model_infos = {mi.id: mi for mi in await Models.get_models_by_ids(model_ids, db=db)}
+         user_group_ids = {g.id for g in await Groups.get_groups_by_member_id(user.id, db=db)}
+diff --git a/backend/open_webui/routers/openai.py b/backend/open_webui/routers/openai.py
+index 8aa8eff36e9..4cdfc603299 100644
+--- a/backend/open_webui/routers/openai.py
++++ b/backend/open_webui/routers/openai.py
+@@ -650,7 +650,7 @@ async def get_models(request: Request, url_idx: int | None = None, user=Depends(
+                 error_detail = f'Unexpected error: {str(e)}'
+                 raise HTTPException(status_code=500, detail=error_detail)
+ 
+-    if user.role == 'user' and not BYPASS_MODEL_ACCESS_CONTROL:
++    if (user.role == 'user' or user.role == 'builder') and not BYPASS_MODEL_ACCESS_CONTROL:
+         models['data'] = await get_filtered_models(models, user)
+ 
+     return models
+diff --git a/backend/open_webui/utils/access_control/__init__.py b/backend/open_webui/utils/access_control/__init__.py
+index 1cc2f086f5f..8b1ef33f3b8 100644
+--- a/backend/open_webui/utils/access_control/__init__.py
++++ b/backend/open_webui/utils/access_control/__init__.py
+@@ -321,7 +321,7 @@ async def check_model_access(
+         return
+ 
+     if model_info:
+-        if user.role == 'user':
++        if user.role == 'user' or user.role == 'builder':
+             from open_webui.models.access_grants import AccessGrants
+ 
+             user_group_ids = {group.id for group in await Groups.get_groups_by_member_id(user.id)}
+diff --git a/backend/open_webui/utils/auth.py b/backend/open_webui/utils/auth.py
+index 26cea6b45fc..d8bd6573d56 100644
+--- a/backend/open_webui/utils/auth.py
++++ b/backend/open_webui/utils/auth.py
+@@ -450,7 +450,7 @@ async def get_current_user_by_api_key(request, api_key: str):
+ 
+ 
+ def get_verified_user(user=Depends(get_current_user)):
+-    if user.role not in {'user', 'admin'}:
++    if user.role not in {'user', 'admin', 'builder', 'local-admin'}:
+         raise HTTPException(
+             status_code=status.HTTP_401_UNAUTHORIZED,
+             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+diff --git a/backend/open_webui/utils/chat.py b/backend/open_webui/utils/chat.py
+index 248be33be79..8301ec04fd7 100644
+--- a/backend/open_webui/utils/chat.py
++++ b/backend/open_webui/utils/chat.py
+@@ -197,7 +197,7 @@ async def generate_chat_completion(
+         return await generate_direct_chat_completion(request, form_data, user=user, models=models)
+     else:
+         # Check if user has access to the model
+-        if not bypass_filter and user.role == 'user':
++        if not bypass_filter and (user.role == 'user' or user.role == 'builder'):
+             try:
+                 await check_model_access(user, model)
+             except Exception as e:
+diff --git a/backend/open_webui/utils/embeddings.py b/backend/open_webui/utils/embeddings.py
+index a2049d4de61..2203b9506ee 100644
+--- a/backend/open_webui/utils/embeddings.py
++++ b/backend/open_webui/utils/embeddings.py
+@@ -67,7 +67,7 @@ async def generate_embeddings(
+ 
+     # Access filtering
+     if not getattr(request.state, 'direct', False):
+-        if not bypass_filter and user.role == 'user':
++        if not bypass_filter and (user.role == 'user' or user.role == 'builder'):
+             await check_model_access(user, model)
+ 
+     # Ollama backend — use /api/embed which supports batch input natively
+diff --git a/backend/open_webui/utils/models.py b/backend/open_webui/utils/models.py
+index 60c58366377..4835b4dca0d 100644
+--- a/backend/open_webui/utils/models.py
++++ b/backend/open_webui/utils/models.py
+@@ -410,7 +410,10 @@ async def check_model_access(user, model, db=None):
+ async def get_filtered_models(models, user, db=None):
+     # Filter out models that the user does not have access to
+     if (
+-        user.role == 'user' or (user.role == 'admin' and not BYPASS_ADMIN_ACCESS_CONTROL)
++        user.role == 'user'
++        or user.role == 'builder'
++        or (user.role == 'admin' and not BYPASS_ADMIN_ACCESS_CONTROL)
++
+     ) and not BYPASS_MODEL_ACCESS_CONTROL:
+         model_infos = {}
+         for model in models:
+diff --git a/backend/open_webui/utils/oauth.py b/backend/open_webui/utils/oauth.py
+index f2e1aa14f69..0e334125d64 100644
+--- a/backend/open_webui/utils/oauth.py
++++ b/backend/open_webui/utils/oauth.py
+@@ -1284,8 +1284,12 @@ async def get_user_role(self, user, user_data):
+                 matched = False
+                 for allowed_role in oauth_allowed_roles:
+                     if allowed_role == '*' or allowed_role in oauth_roles:
+-                        log.debug('Assigned user the user role')
+-                        role = 'user'
++                        log.debug(f'Using first role from OAuth: {oauth_roles[0]}')
++                        first_role = oauth_roles[0]
++                        if first_role == "end-user":
++                            role = 'user'
++                        else:
++                            role = first_role
+                         matched = True
+                         break
+                 for admin_role in oauth_admin_roles:
+diff --git a/src/lib/components/admin/Users/UserList/EditUserModal.svelte b/src/lib/components/admin/Users/UserList/EditUserModal.svelte
+index ba115ad9219..26015da0709 100644
+--- a/src/lib/components/admin/Users/UserList/EditUserModal.svelte
++++ b/src/lib/components/admin/Users/UserList/EditUserModal.svelte
+@@ -145,9 +145,11 @@
+ 												disabled={_user.id == sessionUser.id}
+ 												required
+ 											>
+-												<option value="admin">{$i18n.t('Admin')}</option>
+-												<option value="user">{$i18n.t('User')}</option>
+-												<option value="pending">{$i18n.t('Pending')}</option>
++                                                <option value="admin">{$i18n.t('Admin')}</option>
++                                                <option value="user">{$i18n.t('User')}</option>
++                                                <option value="local-admin">{$i18n.t('Local admin')}</option>
++                                                <option value="builder">{$i18n.t('Builder')}</option>
++                                                <option value="pending">{$i18n.t('Pending')}</option>
+ 											</select>
+ 										</div>
+ 									</div>
+diff --git a/src/routes/(app)/+layout.svelte b/src/routes/(app)/+layout.svelte
+index 772ae6fe2d3..f1e4916a9e4 100644
+--- a/src/routes/(app)/+layout.svelte
++++ b/src/routes/(app)/+layout.svelte
+@@ -197,7 +197,7 @@
+ 			await goto('/auth');
+ 			return;
+ 		}
+-		if (!['user', 'admin'].includes($user?.role)) {
++		if (['pending'].includes($user?.role)) {
+ 			return;
+ 		}
+ 
+@@ -396,7 +396,7 @@
+ 		<div
+ 			class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-screen max-h-[100dvh] overflow-auto flex flex-row justify-end"
+ 		>
+-			{#if !['user', 'admin'].includes($user?.role)}
++			{#if ['pending'].includes($user?.role)}
+ 				<AccountPending />
+ 			{:else}
+ 				{#if localDBChats.length > 0}

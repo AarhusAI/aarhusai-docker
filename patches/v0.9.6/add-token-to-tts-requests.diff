@@ -1,0 +1,41 @@
+diff --git a/backend/open_webui/routers/audio.py b/backend/open_webui/routers/audio.py
+index 441915972d0..ade95f703cc 100644
+--- a/backend/open_webui/routers/audio.py
++++ b/backend/open_webui/routers/audio.py
+@@ -1245,6 +1245,9 @@ async def get_available_models(request: Request) -> list[dict]:
+                     f'{base_url}/audio/models',
+                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                     timeout=_timeout,
++                    headers={
++                        "Authorization": f"Bearer {request.app.state.config.TTS_API_KEY}",
++                    },
+                 ) as resp:
+                     resp.raise_for_status()
+                     data = await resp.json()
+@@ -1256,6 +1259,9 @@ async def get_available_models(request: Request) -> list[dict]:
+                         f'{base_url}/models',
+                         ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                         timeout=_timeout,
++                        headers={
++                            "Authorization": f"Bearer {request.app.state.config.TTS_API_KEY}",
++                        },
+                     ) as resp:
+                         resp.raise_for_status()
+                         data = await resp.json()
+@@ -1319,6 +1325,9 @@ async def get_available_voices(request) -> dict:
+                     f'{base_url}/audio/voices',
+                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                     timeout=_timeout,
++                    headers={
++                        "Authorization": f"Bearer {request.app.state.config.TTS_API_KEY}",
++                    },
+                 ) as resp:
+                     resp.raise_for_status()
+                     data = await resp.json()
+@@ -1397,4 +1406,4 @@ async def get_available_voices(request) -> dict:
+ 
+ @router.get('/voices')
+ async def get_voices(request: Request, user=Depends(get_verified_user)):
+-    return {'voices': [{'id': k, 'name': v} for k, v in (await get_available_voices(request)).items()]}
++    return {'voices': [{'id': k, 'name': v} for k, v in (await get_available_voices(request)).items()]}
+\ No newline at end of file

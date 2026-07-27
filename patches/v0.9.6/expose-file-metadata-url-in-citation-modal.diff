@@ -1,0 +1,35 @@
+diff --git a/src/lib/components/chat/Messages/Citations/CitationModal.svelte b/src/lib/components/chat/Messages/Citations/CitationModal.svelte
+index 0c89dda156a..f39f17e3adf 100644
+--- a/src/lib/components/chat/Messages/Citations/CitationModal.svelte
++++ b/src/lib/components/chat/Messages/Citations/CitationModal.svelte
+@@ -212,6 +212,30 @@
+ 								{/if}
+ 							</div>
+ 
++							<!-- PATCH ADD LINK TO SOURCE -->
++							{#if document?.metadata?.data?.url}
++								<div
++									class=" text-sm font-medium dark:text-gray-300 flex items-center gap-2 w-fit mb-1"
++								>
++									{$i18n.t('Source')}
++									<Tooltip
++										className="w-fit"
++										content={$i18n.t('Open link')}
++										placement="top-start"
++										tippyOptions={{ duration: [500, 0] }}
++									>
++										<a
++											class="hover:text-gray-500 dark:hover:text-gray-100 underline grow line-clamp-1"
++											href={document.metadata.data.url}
++											target="_blank"
++										>
++											{document.metadata.data.url}
++										</a>
++									</Tooltip>
++								</div>
++							{/if}
++							<!-- PATCH ADD LINK TO SOURCE - END -->
++
+ 							{#if document.metadata?.html}
+ 								<iframe
+ 									class="w-full border-0 h-auto rounded-none"

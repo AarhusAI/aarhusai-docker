@@ -187,6 +187,25 @@ tasks:
           curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
     silent: false
 
+  patches:download:
+    desc: "Download all patch diffs to patches/{{ .OPEN_WEBUI_VERSION }}/, named after the patch name"
+    vars:
+      PATCHES_DIR: 'patches/{{ .OPEN_WEBUI_VERSION }}'
+    cmds:
+      - mkdir -p {{ .PATCHES_DIR }}
+      - for: { var: PATCHES }
+        cmd: &download-patch |
+          # Slugify the patch name into a file name.
+          file="{{ .PATCHES_DIR }}/$(printf '%s' '{{ .ITEM.name }}' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//').diff"
+          echo "Downloading '{{ .ITEM.name }}' -> $file"
+          curl -H 'Cache-Control: no-cache, no-store' -sSL --fail -o "$file" {{ .ITEM.url }}
+      - for: { var: PATCHES_AARHUS }
+        cmd: *download-patch
+      - for: { var: PATCHES_OS2 }
+        cmd: *download-patch
+      - echo "Downloaded patches to {{ .PATCHES_DIR }}/"
+    silent: true
+
   install:
     desc: "Install new web-ui"
     cmds:
