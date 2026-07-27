@@ -188,22 +188,41 @@ tasks:
     silent: false
 
   patches:download:
-    desc: "Download all patch diffs to patches/{{ .OPEN_WEBUI_VERSION }}/, named after the patch name"
+    desc: "Download all patch diffs to patches/{{ .OPEN_WEBUI_VERSION }}/{base,aarhus,os2}/, named after the patch name"
     vars:
       PATCHES_DIR: 'patches/{{ .OPEN_WEBUI_VERSION }}'
     cmds:
-      - mkdir -p {{ .PATCHES_DIR }}
       - for: { var: PATCHES }
-        cmd: &download-patch |
-          # Slugify the patch name into a file name.
-          file="{{ .PATCHES_DIR }}/$(printf '%s' '{{ .ITEM.name }}' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//').diff"
-          echo "Downloading '{{ .ITEM.name }}' -> $file"
-          curl -H 'Cache-Control: no-cache, no-store' -sSL --fail -o "$file" {{ .ITEM.url }}
+        task: patches:download:one
+        vars:
+          PATCH_DIR: '{{ .PATCHES_DIR }}/base'
+          PATCH_NAME: '{{ .ITEM.name }}'
+          PATCH_URL: '{{ .ITEM.url }}'
       - for: { var: PATCHES_AARHUS }
-        cmd: *download-patch
+        task: patches:download:one
+        vars:
+          PATCH_DIR: '{{ .PATCHES_DIR }}/aarhus'
+          PATCH_NAME: '{{ .ITEM.name }}'
+          PATCH_URL: '{{ .ITEM.url }}'
       - for: { var: PATCHES_OS2 }
-        cmd: *download-patch
-      - echo "Downloaded patches to {{ .PATCHES_DIR }}/"
+        task: patches:download:one
+        vars:
+          PATCH_DIR: '{{ .PATCHES_DIR }}/os2'
+          PATCH_NAME: '{{ .ITEM.name }}'
+          PATCH_URL: '{{ .ITEM.url }}'
+      - echo "Downloaded patches to {{ .PATCHES_DIR }}/{base,aarhus,os2}/"
+    silent: true
+
+  patches:download:one:
+    desc: "Download a single patch diff into PATCH_DIR"
+    internal: true
+    cmds:
+      - |
+        mkdir -p {{ .PATCH_DIR }}
+        # Slugify the patch name into a file name.
+        file="{{ .PATCH_DIR }}/$(printf '%s' '{{ .PATCH_NAME }}' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//').diff"
+        echo "Downloading '{{ .PATCH_NAME }}' -> $file"
+        curl -H 'Cache-Control: no-cache, no-store' -sSL --fail -o "$file" {{ .PATCH_URL }}
     silent: true
 
   install:
