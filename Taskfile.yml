@@ -11,9 +11,9 @@ vars:
   INGESTION_SERVICE_REPO: 'https://github.com/AarhusAI/ingestion-service.git'
   RETRIEVAL_AGENT_REPO: 'https://github.com/AarhusAI/retrieval-agent.git'
   SEARCH_AGENT_REPO: 'https://github.com/AarhusAI/search-agent.git'
-  OPEN_WEBUI_PREV_VERSION: 'v0.9.5'
-  OPEN_WEBUI_VERSION: 'v0.9.6'
-  PROD_OPEN_WEBUI_VERSION: 'v0.9.6-6'
+  OPEN_WEBUI_PREV_VERSION: 'v0.9.6'
+  OPEN_WEBUI_VERSION: 'v0.11.0'
+  PROD_OPEN_WEBUI_VERSION: 'v0.11.0-1'
   TARGET_DIR: 'open-webui'
   INGESTION_SERVICE_VERSION: 'develop'
   INGESTION_SERVICE_DIR: 'ingestion-service'
@@ -37,7 +37,7 @@ vars:
     - name: 'Fix search model drop-down'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/45.diff'
       branch: 'feature/model-search'
-    - name: 'Ensured that role names from OIDC is kept'
+    - name: 'Keep role names from OIDC'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/34.diff'
       branch: 'feature/keep-role-names'
     - name: 'OIDC aak roles and groups'
@@ -50,15 +50,15 @@ vars:
 
   PATCHES_OS2:
     # In conflict with (feature/external-ingest-rag)
-    - name: 'Use tokenizer from the embedding model'
-      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/53.diff'
-      branch: 'feature/embed-tokenizer'
+    #- name: 'Use tokenizer from the embedding model'
+    #  url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/53.diff'
+    #  branch: 'feature/embed-tokenizer'
 
   PATCHES_AARHUS:
     # RAG patch (external)
-    - name: 'External RAG/Ingestion service'
-      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/52.diff'
-      branch: 'feature/external-ingest-rag'
+    - name: 'Added support for external RAG ingestion and retrieval'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/55.diff'
+      branch: 'feature/external-ingest-rag-ii'
     - name: 'Allow only admin users to generate API-KEY for the backend'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/41.diff'
       branch: 'feature/admin-api-keys'
