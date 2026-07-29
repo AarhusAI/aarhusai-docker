@@ -81,7 +81,7 @@ services:
       RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY:-123456789}
       RAG_EMBEDDING_BATCH_SIZE: ${RAG_EMBEDDING_BATCH_SIZE:-64}
       RAG_SYSTEM_CONTEXT: ${RAG_SYSTEM_CONTEXT:-false}
-      CHUNK_SIZE: ${CHUNK_SIZE:-440}
+      CHUNK_SIZE: ${CHUNK_SIZE:-500}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-token}
       RAG_TOKENIZER_MODEL: ${RAG_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
@@ -722,12 +722,19 @@ services:
       GOTENBERG_CONNECT_TIMEOUT: ${INGESTION_GOTENBERG_CONNECT_TIMEOUT:-5.0}
       GOTENBERG_READ_TIMEOUT: ${INGESTION_GOTENBERG_READ_TIMEOUT:-120.0}
       GOTENBERG_TLS_VERIFY: ${INGESTION_GOTENBERG_TLS_VERIFY:-false}
-      # Chunking — token mode measures with the embedding model's HF
-      # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty)
-      # so chunks respect the 512-token cap on e5-large. word/sentence/passage
-      # delegate to Haystack's built-in DocumentSplitter.
-      CHUNK_SIZE: ${CHUNK_SIZE:-400}
-      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      # Chunking — token/markdown modes measure with the embedding model's HF
+      # tokenizer (TOKENIZER_MODEL, falls back to EMBEDDING_MODEL when empty).
+      # The 512-token cap on e5-large is enforced by EMBEDDING_MAX_TOKENS below,
+      # against the text the embedder actually *sends* (prefix + heading
+      # breadcrumb + content + special tokens) — CHUNK_SIZE alone counts only
+      # chunk content, which is how 500-token chunks became 513-token requests.
+      # word/sentence/passage delegate to Haystack's built-in DocumentSplitter.
+      #
+      # NOTE: CHUNK_SIZE / CHUNK_OVERLAP are deliberately *not* INGESTION_-prefixed
+      # — they are shared with Open WebUI's own chunker (see CHUNK_SIZE above in
+      # the openwebui service), so changing them here changes both services.
+      CHUNK_SIZE: ${CHUNK_SIZE:-500}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       CHUNK_SPLIT_BY: ${INGESTION_CHUNK_SPLIT_BY:-markdown}
       TOKENIZER_MODEL: ${INGESTION_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
       TOKENIZER_REVISION: ${INGESTION_TOKENIZER_REVISION:-3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3}
@@ -740,8 +747,18 @@ services:
       EMBEDDING_API_KEY: ${INGESTION_EMBEDDING_API_KEY:-123456789}
       EMBEDDING_MODEL: ${INGESTION_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
       EMBEDDING_DIM: ${INGESTION_EMBEDDING_DIM:-1024}
+      # Hard input limit of the served model (e5-large: 512). A contract with
+      # embed.itkdev.dk, not a preference: one token over and it rejects the
+      # entire request batch with HTTP 400, so a single oversized chunk costs
+      # the dense vectors of every chunk batched with it. Chunking treats this
+      # as the ceiling and shrinks chunks so prefix + breadcrumb + specials fit.
+      EMBEDDING_MAX_TOKENS: ${INGESTION_EMBEDDING_MAX_TOKENS:-512}
       EMBEDDING_PREFIX_DOC: "${INGESTION_EMBEDDING_PREFIX_DOC:-passage: }"
       EMBEDDING_PREFIX_QUERY: "${INGESTION_EMBEDDING_PREFIX_QUERY:-query: }"
+      # Prepend the heading breadcrumb to the embedded text (stored content is
+      # untouched). Costs tokens against EMBEDDING_MAX_TOKENS — up to ~50 on
+      # deeply nested headings — which the chunk budget accounts for per section.
+      EMBED_HEADERS_BREADCRUMB: ${INGESTION_EMBED_HEADERS_BREADCRUMB:-true}
       # Sparse embedder — required so Haystack writes named vectors
       # (text-dense + text-sparse) the retrieval agent expects. Also
       # unlocks server-side RRF hybrid retrieval. The fastembed BM42
