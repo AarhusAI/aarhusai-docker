@@ -759,6 +759,16 @@ services:
       # untouched). Costs tokens against EMBEDDING_MAX_TOKENS — up to ~50 on
       # deeply nested headings — which the chunk budget accounts for per section.
       EMBED_HEADERS_BREADCRUMB: ${INGESTION_EMBED_HEADERS_BREADCRUMB:-true}
+      # HTTP budget for embed.itkdev.dk. Split connect/read so a blackholed
+      # endpoint costs 5s per attempt instead of 30s, which is what makes the
+      # retry count affordable. 16 retries ride out ~78-104s of downtime
+      # (measured: a 110s outage on 2026-07-30 failed 11 uploads under the old
+      # ~13s budget). Worst case ~189s per ingest, bounded per run rather than
+      # per batch — keep it well inside EXTERNAL_INGESTION_TIMEOUT (900s), which
+      # the vision extraction route may already have spent 300s+ of.
+      EMBEDDING_CONNECT_TIMEOUT: ${INGESTION_EMBEDDING_CONNECT_TIMEOUT:-5.0}
+      EMBEDDING_READ_TIMEOUT: ${INGESTION_EMBEDDING_READ_TIMEOUT:-30.0}
+      EMBEDDING_MAX_RETRIES: ${INGESTION_EMBEDDING_MAX_RETRIES:-16}
       # Sparse embedder — required so Haystack writes named vectors
       # (text-dense + text-sparse) the retrieval agent expects. Also
       # unlocks server-side RRF hybrid retrieval. The fastembed BM42

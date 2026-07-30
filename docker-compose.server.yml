@@ -15,6 +15,7 @@ services:
       DATA_DIR: /app/backend/data
       ENV: ${ENV_MODE:-dev}
       PORT: 8080
+      WEBUI_NAME: "ITK AI Platform"
       WEBUI_URL: "https://${COMPOSE_SERVER_DOMAIN}"
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-*}
       USER_AGENT: ${USER_AGENT:-'Aarhus Kommune AI'}
@@ -77,6 +78,7 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-500}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       RAG_TEXT_SPLITTER: ${RAG_TEXT_SPLITTER:-token}
+      RAG_TOKENIZER_MODEL: ${RAG_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
       ENABLE_ASYNC_EMBEDDING: ${ENABLE_ASYNC_EMBEDDING:-true}
       ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: ${ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER:-true}
       # RAG retrieval (EXTERNAL)
@@ -90,7 +92,12 @@ services:
       EXTERNAL_INGESTION_ENGINE: "${EXTERNAL_INGESTION_ENGINE:-}"
       EXTERNAL_INGESTION_URL: "${EXTERNAL_INGESTION_URL:-http://ingestion:8000}"
       EXTERNAL_INGESTION_API_KEY: "${INGESTION_API_KEY:-}"
-      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-300}"
+      # Client budget for the synchronous ingest PUT. Must exceed the ingestion
+      # service's summed component read timeouts on the slow vision/hybrid-diagram
+      # route (Gotenberg office->PDF 120s + Vision-LLM 180s per call + embedding),
+      # or Open WebUI marks the file failed while the service still commits a good
+      # index. 900s gives headroom over the realistic worst case.
+      EXTERNAL_INGESTION_TIMEOUT: "${EXTERNAL_INGESTION_TIMEOUT:-900}"
       # Disable ollama as default, prevent UI from freezing when not available on localhost.
       ENABLE_OLLAMA_API: false
       OLLAMA_BASE_URL: 'http://localhost:11434'
@@ -124,6 +131,8 @@ services:
       # Redis cache
       REDIS_URL: redis://redis:6379/0
       ENABLE_WEBSOCKET_SUPPORT: true
+      WEBSOCKET_MANAGER: redis
+      WEBSOCKET_REDIS_URL: redis://redis:6379/0
       # STT (whisper)
       AUDIO_STT_ENGINE: "openai"
       AUDIO_STT_OPENAI_API_BASE_URL: "https://whisper.itkdev.dk/"
@@ -691,8 +700,28 @@ services:
       EMBEDDING_API_KEY: ${INGESTION_EMBEDDING_API_KEY:-123456789}
       EMBEDDING_MODEL: ${INGESTION_EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
       EMBEDDING_DIM: ${INGESTION_EMBEDDING_DIM:-1024}
+      # Hard input limit of the served model (e5-large: 512). A contract with
+      # embed.itkdev.dk, not a preference: one token over and it rejects the
+      # entire request batch with HTTP 400, so a single oversized chunk costs
+      # the dense vectors of every chunk batched with it. Chunking treats this
+      # as the ceiling and shrinks chunks so prefix + breadcrumb + specials fit.
+      EMBEDDING_MAX_TOKENS: ${INGESTION_EMBEDDING_MAX_TOKENS:-512}
       EMBEDDING_PREFIX_DOC: "${INGESTION_EMBEDDING_PREFIX_DOC:-passage: }"
       EMBEDDING_PREFIX_QUERY: "${INGESTION_EMBEDDING_PREFIX_QUERY:-query: }"
+      # Prepend the heading breadcrumb to the embedded text (stored content is
+      # untouched). Costs tokens against EMBEDDING_MAX_TOKENS — up to ~50 on
+      # deeply nested headings — which the chunk budget accounts for per section.
+      EMBED_HEADERS_BREADCRUMB: ${INGESTION_EMBED_HEADERS_BREADCRUMB:-true}
+      # HTTP budget for embed.itkdev.dk. Split connect/read so a blackholed
+      # endpoint costs 5s per attempt instead of 30s, which is what makes the
+      # retry count affordable. 16 retries ride out ~78-104s of downtime
+      # (measured: a 110s outage on 2026-07-30 failed 11 uploads under the old
+      # ~13s budget). Worst case ~189s per ingest, bounded per run rather than
+      # per batch — keep it well inside EXTERNAL_INGESTION_TIMEOUT (900s), which
+      # the vision extraction route may already have spent 300s+ of.
+      EMBEDDING_CONNECT_TIMEOUT: ${INGESTION_EMBEDDING_CONNECT_TIMEOUT:-5.0}
+      EMBEDDING_READ_TIMEOUT: ${INGESTION_EMBEDDING_READ_TIMEOUT:-30.0}
+      EMBEDDING_MAX_RETRIES: ${INGESTION_EMBEDDING_MAX_RETRIES:-16}
       # Sparse embedder — required so Haystack writes named vectors
       # (text-dense + text-sparse) the retrieval agent expects. Also
       # unlocks server-side RRF hybrid retrieval. The fastembed BM42
