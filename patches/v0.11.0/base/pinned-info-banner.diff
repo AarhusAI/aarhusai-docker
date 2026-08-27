@@ -1,0 +1,21 @@
+diff --git a/src/lib/components/chat/Chat.svelte b/src/lib/components/chat/Chat.svelte
+index 87a40296f680..52d43c707be3 100644
+--- a/src/lib/components/chat/Chat.svelte
++++ b/src/lib/components/chat/Chat.svelte
+@@ -3939,6 +3939,16 @@
+ 								</div>
+ 							</div>
+ 
++							<!-- PATCH ADD BANNERS TO CHAT INPUT -->
++							{#if !showCommands}
++								{#each $banners as banner}
++									{#if !banner.dismissible}
++										<Banner {banner} className="mx-4 my-2" />
++									{/if}
++								{/each}
++							{/if}
++							<!-- /PATCH ADD BANNERS TO CHAT INPUT -->
++
+ 							{#if readOnly}
+ 								<div class="pb-6 z-10">
+ 									<div class="text-xs text-gray-400 dark:text-gray-500 text-center">

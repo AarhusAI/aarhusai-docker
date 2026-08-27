@@ -1,0 +1,149 @@
+diff --git a/backend/open_webui/routers/auths.py b/backend/open_webui/routers/auths.py
+index d9f6b022ba61..6f5f02ba6a7a 100644
+--- a/backend/open_webui/routers/auths.py
++++ b/backend/open_webui/routers/auths.py
+@@ -1462,10 +1462,13 @@ async def _check_api_key_permission(request: Request, user, db: AsyncSession):
+         )
+ 
+ 
++# PATCH (AarhusAI/open-webui#41, ticket 5511): API keys are admin-only in this fork — admins mint
++# them for users via /users/{user_id}/api_key. Only the get_admin_user dependency differs from
++# upstream; _check_api_key_permission still enforces the global auth.enable_api_keys toggle.
+ # create api key
+ @router.post('/api_key', response_model=ApiKey)
+ async def generate_api_key(
+-    request: Request, user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)
++    request: Request, user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)
+ ):
+     await _check_api_key_permission(request, user, db)
+ 
+@@ -1490,7 +1493,7 @@ async def generate_api_key(
+ # delete api key
+ @router.delete('/api_key', response_model=bool)
+ async def delete_api_key(
+-    request: Request, user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)
++    request: Request, user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)
+ ):
+     await _check_api_key_permission(request, user, db)
+     success = await Users.delete_user_api_key_by_id(user.id, db=db)
+@@ -1507,7 +1510,7 @@ async def delete_api_key(
+ 
+ # get api key
+ @router.get('/api_key', response_model=ApiKey)
+-async def get_api_key(request: Request, user=Depends(get_current_user), db: AsyncSession = Depends(get_async_session)):
++async def get_api_key(request: Request, user=Depends(get_admin_user), db: AsyncSession = Depends(get_async_session)):
+     await _check_api_key_permission(request, user, db)
+     api_key = await Users.get_user_api_key_by_id(user.id, db=db)
+     if api_key:
+diff --git a/backend/open_webui/routers/users.py b/backend/open_webui/routers/users.py
+index 01ea3aa5e47c..ac4a0bf52912 100644
+--- a/backend/open_webui/routers/users.py
++++ b/backend/open_webui/routers/users.py
+@@ -14,7 +14,7 @@
+ from open_webui.events import EVENTS, publish_event
+ from open_webui.env import ENABLE_PROFILE_IMAGE_URL_FORWARDING, PROFILE_IMAGE_ALLOWED_MIME_TYPES, STATIC_DIR
+ from open_webui.internal.db import get_async_session
+-from open_webui.models.auths import Auths
++from open_webui.models.auths import ApiKey, Auths
+ from open_webui.models.config import Config
+ from open_webui.models.chat_messages import ChatMessages
+ from open_webui.models.chats import Chats
+@@ -39,6 +39,7 @@
+ from open_webui.socket.main import disconnect_user_sessions
+ from open_webui.utils.access_control import get_permissions, has_permission
+ from open_webui.utils.auth import (
++    create_api_key,
+     get_admin_user,
+     get_password_hash,
+     get_verified_user,
+@@ -1121,3 +1122,60 @@ async def get_user_preview(
+             'total': len(all_tools),
+         },
+     }
++
++
++############################
++# Admin: User API Key Management
++# PATCH (AarhusAI/open-webui#41, ticket 5511): let admins mint/read/revoke API keys on behalf of
++# users, since users can no longer create their own (see auths.py /api_key).
++############################
++
++
++@router.post('/{user_id}/api_key', response_model=ApiKey)
++async def generate_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    target_user = await Users.get_user_by_id(user_id, db=db)
++    if not target_user:
++        raise HTTPException(
++            status_code=status.HTTP_400_BAD_REQUEST,
++            detail=ERROR_MESSAGES.USER_NOT_FOUND,
++        )
++
++    api_key = create_api_key()
++    success = await Users.update_user_api_key_by_id(user_id, api_key, db=db)
++
++    if success:
++        return {'api_key': api_key}
++    else:
++        raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_API_KEY_ERROR)
++
++
++@router.get('/{user_id}/api_key', response_model=ApiKey)
++async def get_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    api_key = await Users.get_user_api_key_by_id(user_id, db=db)
++    if api_key:
++        return {'api_key': api_key}
++    else:
++        raise HTTPException(404, detail=ERROR_MESSAGES.API_KEY_NOT_FOUND)
++
++
++@router.delete('/{user_id}/api_key', response_model=bool)
++async def delete_api_key_for_user(
++    user_id: str,
++    user=Depends(get_admin_user),
++    db: AsyncSession = Depends(get_async_session),
++):
++    target_user = await Users.get_user_by_id(user_id, db=db)
++    if not target_user:
++        raise HTTPException(
++            status_code=status.HTTP_400_BAD_REQUEST,
++            detail=ERROR_MESSAGES.USER_NOT_FOUND,
++        )
++    return await Users.delete_user_api_key_by_id(user_id, db=db)
+diff --git a/backend/open_webui/utils/auth.py b/backend/open_webui/utils/auth.py
+index 0384d6fcb9be..0b0be120e882 100644
+--- a/backend/open_webui/utils/auth.py
++++ b/backend/open_webui/utils/auth.py
+@@ -39,7 +39,6 @@
+ from open_webui.models.auths import Auths
+ from open_webui.models.config import Config
+ from open_webui.models.users import Users
+-from open_webui.utils.access_control import has_permission
+ from pytz import UTC
+ 
+ log = logging.getLogger(__name__)
+@@ -450,14 +449,9 @@ async def get_current_user_by_api_key(request, api_key: str):
+     if not config_values.get('auth.enable_api_keys'):
+         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED)
+ 
+-    if user.role != 'admin':
+-        user_permissions = config_values.get('user.permissions')
+-        if not await has_permission(
+-            user.id,
+-            'features.api_keys',
+-            user_permissions,
+-        ):
+-            raise HTTPException(status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED)
++    # PATCH (AarhusAI/open-webui#41, ticket 5511): upstream also requires the per-user
++    # 'features.api_keys' permission here. Removed — keys are admin-issued on the user's behalf,
++    # so the user need not hold the permission. The global toggle above still gates usage.
+ 
+     # Enforce endpoint restrictions — checked here (not in middleware)
+     # so it applies regardless of how the API key was transported

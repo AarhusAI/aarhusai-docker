@@ -1,0 +1,184 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index ec541f5a336e..3cb594bdf314 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -2296,6 +2296,32 @@ class BannerModel(BaseModel):
+ </chat_history>
+ """
+ 
++# Retrieval (knowledge base) queries need a different prompt than web search queries:
++# semantic vector search rewards natural-language phrasings over keyword queries.
++RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = os.getenv('RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE', '')
++
++DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
++Analyze the chat history and generate 1-3 search queries optimized for retrieving relevant documents from a knowledge base using semantic vector search.
++
++### Guidelines:
++- Respond **EXCLUSIVELY** with a JSON object.
++- Base queries on the **user's questions and information needs only**. Use assistant responses solely for context and disambiguation (e.g. resolving "that", "it", "the one you mentioned").
++- Generate queries as natural-language phrases that capture the semantic meaning of the user's information need.
++- Reformulate conversational references into standalone, self-contained queries.
++- Each query should target a different aspect or angle to maximize retrieval coverage.
++- If the user's message clearly needs no document retrieval (e.g. greetings), return: { "queries": [] }
++- Respond in the same language as the user's messages.
++- Today's date is: {{CURRENT_DATE}}
++
++### Output:
++{ "queries": ["query1", "query2"] }
++
++### Chat History:
++<chat_history>
++{{MESSAGES:END:4}}
++</chat_history>
++"""
++
+ ENABLE_AUTOCOMPLETE_GENERATION = os.getenv('ENABLE_AUTOCOMPLETE_GENERATION', 'False').lower() == 'true'
+ 
+ AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH = int(os.getenv('AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH', '-1'))
+@@ -3101,6 +3127,7 @@ def feishu_oauth_register(oauth: OAuth):
+     'task.query.search.enable': ENABLE_SEARCH_QUERY_GENERATION,
+     'task.query.retrieval.enable': ENABLE_RETRIEVAL_QUERY_GENERATION,
+     'task.query.prompt_template': QUERY_GENERATION_PROMPT_TEMPLATE,
++    'task.query.retrieval_prompt_template': RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     'task.autocomplete.enable': ENABLE_AUTOCOMPLETE_GENERATION,
+     'task.autocomplete.input_max_length': AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH,
+     'task.autocomplete.prompt_template': AUTOCOMPLETE_GENERATION_PROMPT_TEMPLATE,
+diff --git a/backend/open_webui/routers/tasks.py b/backend/open_webui/routers/tasks.py
+index 4e377e2b7896..3bf6afdb96d8 100644
+--- a/backend/open_webui/routers/tasks.py
++++ b/backend/open_webui/routers/tasks.py
+@@ -11,6 +11,7 @@
+     DEFAULT_IMAGE_PROMPT_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_MOA_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE,
++    DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_TAGS_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_TITLE_GENERATION_PROMPT_TEMPLATE,
+     DEFAULT_VOICE_MODE_PROMPT_TEMPLATE,
+@@ -53,6 +54,7 @@
+     'ENABLE_SEARCH_QUERY_GENERATION': 'task.query.search.enable',
+     'ENABLE_RETRIEVAL_QUERY_GENERATION': 'task.query.retrieval.enable',
+     'QUERY_GENERATION_PROMPT_TEMPLATE': 'task.query.prompt_template',
++    'RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE': 'task.query.retrieval_prompt_template',
+     'TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE': 'task.tools.prompt_template',
+     'ENABLE_VOICE_MODE_PROMPT': 'task.voice.prompt.enable',
+     'VOICE_MODE_PROMPT_TEMPLATE': 'task.voice.prompt_template',
+@@ -96,6 +98,7 @@ class TaskConfigForm(BaseModel):
+     ENABLE_SEARCH_QUERY_GENERATION: bool
+     ENABLE_RETRIEVAL_QUERY_GENERATION: bool
+     QUERY_GENERATION_PROMPT_TEMPLATE: str
++    RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: str
+     TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: str
+     ENABLE_VOICE_MODE_PROMPT: bool
+     VOICE_MODE_PROMPT_TEMPLATE: Optional[str]
+@@ -441,11 +444,18 @@ async def generate_queries(request: Request, form_data: dict, user=Depends(get_v
+ 
+     log.debug(f'generating {type} queries using model {task_model_id} for user {user.email}')
+ 
+-    query_template = await Config.get('task.query.prompt_template')
+-    if query_template.strip() != '':
+-        template = query_template
++    if type == 'retrieval':
++        retrieval_query_template = await Config.get('task.query.retrieval_prompt_template')
++        if retrieval_query_template.strip() != '':
++            template = retrieval_query_template
++        else:
++            template = DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE
+     else:
+-        template = DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE
++        query_template = await Config.get('task.query.prompt_template')
++        if query_template.strip() != '':
++            template = query_template
++        else:
++            template = DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE
+ 
+     content = await query_generation_template(template, form_data['messages'], user)
+ 
+diff --git a/src/lib/components/admin/Settings/Documents.svelte b/src/lib/components/admin/Settings/Documents.svelte
+index 3f2911ff36cd..2dfd88c2db1b 100644
+--- a/src/lib/components/admin/Settings/Documents.svelte
++++ b/src/lib/components/admin/Settings/Documents.svelte
+@@ -17,6 +17,8 @@
+ 		updateRAGConfig
+ 	} from '$lib/apis/retrieval';
+ 
++	import { getTaskConfig, updateTaskConfig } from '$lib/apis';
++
+ 	import { reindexKnowledgeFiles } from '$lib/apis/knowledge';
+ 	import { deleteAllFiles } from '$lib/apis/files';
+ 
+@@ -70,6 +72,8 @@
+ 	};
+ 
+ 	let RAGConfig: any = null;
++	let retrievalQueryPrompt: any = '';
++
+ 	const inputClass =
+ 		'w-full h-7 rounded-lg border border-gray-100/50 bg-gray-50/40 px-2 text-xs text-gray-700 outline-hidden transition-colors placeholder:text-gray-300 focus:border-blue-400 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-gray-300 dark:placeholder:text-gray-700 dark:focus:border-blue-500';
+ 	const actionButtonClass =
+@@ -252,6 +256,15 @@
+ 			}
+ 		}
+ 
++		// Save the retrieval query prompt via the task config API
++		const currentTaskConfig = await getTaskConfig(localStorage.token);
++		if (currentTaskConfig) {
++			await updateTaskConfig(localStorage.token, {
++				...currentTaskConfig,
++				RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: retrievalQueryPrompt
++			});
++		}
++
+ 		const res = await updateRAGConfig(localStorage.token, {
+ 			...RAGConfig,
+ 			// Convert null (from cleared number inputs) to empty string so the backend
+@@ -340,6 +353,11 @@
+ 		config.RAG_TOKENIZER_MODEL = config?.RAG_TOKENIZER_MODEL ?? '';
+ 
+ 		RAGConfig = config;
++
++		const taskConfig = await getTaskConfig(localStorage.token);
++		if (taskConfig) {
++			retrievalQueryPrompt = taskConfig.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE ?? '';
++		}
+ 	});
+ </script>
+ 
+@@ -1369,6 +1387,25 @@
+ 					{/if}
+ 				{/if}
+ 
++				<AdminSettingField
++					label={$i18n.t('Retrieval Query Generation Prompt')}
++					description={$i18n.t('Prompt template used when search query retrieved context is injected.')}
++				>
++					<Tooltip
++						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
++						placement="top-start"
++						className="w-full"
++					>
++						<Textarea
++							className={textareaClass}
++							bind:value={retrievalQueryPrompt}
++							placeholder={$i18n.t(
++								'Leave empty to use the default prompt, or enter a custom prompt'
++							)}
++						/>
++					</Tooltip>
++				</AdminSettingField>
++
+ 				<AdminSettingField
+ 					label={$i18n.t('RAG Template')}
+ 					description={$i18n.t('Prompt template used when retrieved context is injected.')}
+diff --git a/src/lib/components/admin/Settings/Interface.svelte b/src/lib/components/admin/Settings/Interface.svelte
+index c1cae4b83b7f..57e844ef9ccf 100644
+--- a/src/lib/components/admin/Settings/Interface.svelte
++++ b/src/lib/components/admin/Settings/Interface.svelte
+@@ -35,6 +35,7 @@
+ 		ENABLE_SEARCH_QUERY_GENERATION: true,
+ 		ENABLE_RETRIEVAL_QUERY_GENERATION: true,
+ 		QUERY_GENERATION_PROMPT_TEMPLATE: '',
++		RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: '',
+ 		TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: '',
+ 		ENABLE_VOICE_MODE_PROMPT: true,
+ 		VOICE_MODE_PROMPT_TEMPLATE: ''

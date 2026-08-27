@@ -1,0 +1,66 @@
+diff --git a/src/lib/components/chat/ModelSelector/Selector.svelte b/src/lib/components/chat/ModelSelector/Selector.svelte
+index 28654d6897d6..15cf63ddd8b4 100644
+--- a/src/lib/components/chat/ModelSelector/Selector.svelte
++++ b/src/lib/components/chat/ModelSelector/Selector.svelte
+@@ -234,21 +234,24 @@
+ 	let ollamaVersion = null;
+ 	let selectedModelIdx = 0;
+ 
+-	const fuse = new Fuse(
+-		items.map((item) => {
+-			const _item = {
+-				...item,
+-				modelName: item.model?.name,
+-				tags: (item.model?.tags ?? []).map((tag) => tag.name).join(' '),
+-				desc: item.model?.info?.meta?.description
+-			};
+-			return _item;
+-		}),
+-		{
+-			keys: ['value', 'tags', 'modelName'],
+-			threshold: 0.4
+-		}
+-	);
++	let fuse;
++	$: if (items && items.length > 0) {
++		fuse = new Fuse(
++			items.map((item) => {
++				const _item = {
++					...item,
++					modelName: item.model?.name,
++					tags: (item.model?.tags ?? []).map((tag) => tag.name).join(' '),
++					desc: item.model?.info?.meta?.description
++				};
++				return _item;
++			}),
++			{
++				keys: ['value', 'tags', 'modelName'],
++				threshold: 0.4
++			}
++		);
++	}
+ 
+ 	const updateFuse = () => {
+ 		if (fuse) {
+@@ -324,6 +327,21 @@
+ 		selectedConnectionType !== undefined ||
+ 		searchValue !== undefined
+ 	) {
++
++	}
++
++	$: console.debug(
++		'Debug - items:',
++		items.length,
++		'filteredItems:',
++		filteredItems.length,
++		'searchValue:',
++		searchValue
++	);
++
++	$: if (selectedTag || selectedConnectionType) {
++		resetView();
++	} else {
+ 		resetView();
+ 	}
+ 
