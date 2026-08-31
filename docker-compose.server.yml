@@ -309,7 +309,7 @@ services:
       ENABLE_CODE_INTERPRETER: ${ENABLE_CODE_INTERPRETER:-"False"}
       # Disable follow-up generation
       ENABLE_FOLLOW_UP_GENERATION: false
-     networks:
+    networks:
       - app
       - frontend
     depends_on:
