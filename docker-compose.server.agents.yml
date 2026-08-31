@@ -66,9 +66,9 @@ services:
               ]
             },
             "info": {
-              "id": "eventdatabase",
-              "name": "eventdatabase",
-              "description": "Lookup events from the event database"
+              "id": "retsinformation",
+              "name": "retsinformation",
+              "description": "Lookup rets-information"
             }
           }
         ]
