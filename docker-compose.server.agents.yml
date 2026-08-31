@@ -6,7 +6,7 @@ networks:
     internal: false
 
 services:
-  open-webui:
+  openwebui:
     environment:
       # Tool server connections
       TOOL_SERVER_CONNECTIONS: |-
@@ -77,7 +77,7 @@ services:
     image: ghcr.io/aarhusai/search-agent:${SEARCH_AGENT_VERSION:-latest}
     command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001" ]
     restart: unless-stopped
-    exposes:
+    expose:
       - "8001"
     networks:
       - app
@@ -134,7 +134,7 @@ services:
 
   eventdatabase-agent:
     image: ghcr.io/aarhusai/eventdatabasen-agent:${EVENT_DATABASE_AGENT_VERSION:-latest}
-    exposes:
+    expose:
       - "8000"
     networks:
       - app
@@ -157,7 +157,7 @@ services:
 
   retsinformation-agent:
     image: ghcr.io/aarhusai/retsinformation-api-agent:${RETSINFORMATION_AGENT_VERSION:-latest}
-    exposes:
+    expose:
       - "8000"
     networks:
       - app
