@@ -1,0 +1,183 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  open-webui:
+    environment:
+      # Tool server connections
+      TOOL_SERVER_CONNECTIONS: |-
+        [
+          {
+            "type": "mcp",
+            "url": "http://search-agent:8001/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "none",
+            "key": "",
+            "config": {
+              "enable": true,
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "websearch",
+              "name": "websearch",
+              "description": "Search the internet"
+            }
+          },
+          {
+            "type": "mcp",
+            "url": "http://eventdatabase-agent:8000/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "bearer",
+            "key": "${EVENT_DATABASE_SERVICE_API_KEY:?}",
+            "config": {
+              "enable": true,
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "eventdatabase",
+              "name": "eventdatabase",
+              "description": "Lookup events from the event database"
+            }
+          },
+          {
+            "type": "mcp",
+            "url": "http://retsinformation-agent:8000/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "bearer",
+            "key": "${RETSINFORMATION_SERVICE_API_KEY:?}",
+            "config": {
+              "enable": true,
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "eventdatabase",
+              "name": "eventdatabase",
+              "description": "Lookup events from the event database"
+            }
+          }
+        ]
+
+  search-agent:
+    image: ghcr.io/aarhusai/search-agent:${SEARCH_AGENT_VERSION:-latest}
+    command: [ "uv", "run", "uvicorn", "search_agent.main:app", "--host", "0.0.0.0", "--port", "8001" ]
+    restart: unless-stopped
+    exposes:
+      - "8001"
+    networks:
+      - app
+    depends_on:
+      - searxng
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      SEARCH_AGENT_LLM_BASE_URL: ${SEARCH_AGENT_LLM_BASE_URL:?}
+      SEARCH_AGENT_LLM_API_KEY: ${SEARCH_AGENT_LLM_API_KEY:?}
+      SEARCH_AGENT_LLM_MODEL: ${SEARCH_AGENT_LLM_MODEL:?}
+      SEARCH_AGENT_SEARCH_PROVIDER: ${SEARCH_AGENT_SEARCH_PROVIDER:-searxng}
+      SEARCH_AGENT_SEARXNG_URL: ${SEARCH_AGENT_SEARXNG_URL:-http://searxng:8080}
+      SEARCH_AGENT_STAAN_URL: ${SEARCH_AGENT_STAAN_URL:-https://api.staan.ai}
+      SEARCH_AGENT_STAAN_API_KEY: ${SEARCH_AGENT_STAAN_API_KEY:-}
+      SEARCH_AGENT_STAAN_MARKET: ${SEARCH_AGENT_STAAN_MARKET:-en-us}
+      SEARCH_AGENT_STAAN_TIMEOUT: ${SEARCH_AGENT_STAAN_TIMEOUT:-10}
+      SEARCH_AGENT_STAAN_ENRICHMENT: ${SEARCH_AGENT_STAAN_ENRICHMENT:-full_content}
+      SEARCH_AGENT_STAAN_MAX_SNIPPETS: ${SEARCH_AGENT_STAAN_MAX_SNIPPETS:-3}
+      SEARCH_AGENT_STAAN_MIN_SCORE: ${SEARCH_AGENT_STAAN_MIN_SCORE:-0.1}
+      SEARCH_AGENT_STAAN_CONTENT_MAX_CHARS: ${SEARCH_AGENT_STAAN_CONTENT_MAX_CHARS:-5000}
+      SEARCH_AGENT_STAAN_CONTENT_MAX_RESULTS: ${SEARCH_AGENT_STAAN_CONTENT_MAX_RESULTS:-5}
+      SEARCH_AGENT_STAAN_MAX_RESPONSE_BYTES: ${SEARCH_AGENT_STAAN_MAX_RESPONSE_BYTES:-10000000}
+      SEARCH_AGENT_DATETIME_TIMEZONE: ${SEARCH_AGENT_DATETIME_TIMEZONE:-UTC}
+      SEARCH_AGENT_DATETIME_FORMAT: ${SEARCH_AGENT_DATETIME_FORMAT:-%A, %B %-d, %Y, %H:%M %Z}
+      SEARCH_AGENT_MCP_ALLOWED_HOSTS: ${SEARCH_AGENT_MCP_ALLOWED_HOSTS:-["search-agent:8001","localhost:8001"]}
+      SEARCH_AGENT_SEARXNG_TIMEOUT: ${SEARCH_AGENT_SEARXNG_TIMEOUT:-15}
+      SEARCH_AGENT_SEARCH_PIPELINE_TIMEOUT: ${SEARCH_AGENT_SEARCH_PIPELINE_TIMEOUT:-90}
+      SEARCH_AGENT_LLM_TIMEOUT: ${SEARCH_AGENT_LLM_TIMEOUT:-60}
+      SEARCH_AGENT_SEARCH_QUERY_PLANNER_PROMPT: ${SEARCH_AGENT_SEARCH_QUERY_PLANNER_PROMPT:-}
+      SEARCH_AGENT_SEARCH_ANALYZE_SYNTHESIZE_PROMPT: ${SEARCH_AGENT_SEARCH_ANALYZE_SYNTHESIZE_PROMPT:-}
+      SEARCH_AGENT_SEARCH_SKIP_PLANNER_FOR_SIMPLE_QUERIES: ${SEARCH_AGENT_SEARCH_SKIP_PLANNER_FOR_SIMPLE_QUERIES:-true}
+      SEARCH_AGENT_SEARCH_MAX_QUERIES: ${SEARCH_AGENT_SEARCH_MAX_QUERIES:-3}
+      SEARCH_AGENT_SEARCH_MAX_RESULTS: ${SEARCH_AGENT_SEARCH_MAX_RESULTS:-15}
+      SEARCH_AGENT_SEARCH_SIMPLE_QUERY_MAX_WORDS: ${SEARCH_AGENT_SEARCH_SIMPLE_QUERY_MAX_WORDS:-15}
+      SEARCH_AGENT_SEARCH_SIMPLE_QUERY_MAX_QUESTIONS: ${SEARCH_AGENT_SEARCH_SIMPLE_QUERY_MAX_QUESTIONS:-1}
+      SEARCH_AGENT_SEARCH_FETCH_PAGE_CONTENT: ${SEARCH_AGENT_SEARCH_FETCH_PAGE_CONTENT:-false}
+      SEARCH_AGENT_SEARCH_FETCH_MAX_PAGES: ${SEARCH_AGENT_SEARCH_FETCH_MAX_PAGES:-5}
+      SEARCH_AGENT_SEARCH_FETCH_TIMEOUT: ${SEARCH_AGENT_SEARCH_FETCH_TIMEOUT:-10}
+      SEARCH_AGENT_SEARCH_FETCH_MAX_CHARS: ${SEARCH_AGENT_SEARCH_FETCH_MAX_CHARS:-5000}
+      SEARCH_AGENT_SEARCH_FETCH_MAX_BYTES: ${SEARCH_AGENT_SEARCH_FETCH_MAX_BYTES:-2000000}
+      SEARCH_AGENT_CACHE_BACKEND: ${SEARCH_AGENT_CACHE_BACKEND:-redis}
+      SEARCH_AGENT_CACHE_REDIS_URL: ${SEARCH_AGENT_CACHE_REDIS_URL:-redis://redis:6379/0}
+      SEARCH_AGENT_CACHE_FETCH_TTL: ${SEARCH_AGENT_CACHE_FETCH_TTL:-3600}
+      SEARCH_AGENT_CACHE_FETCH_NEGATIVE_TTL: ${SEARCH_AGENT_CACHE_FETCH_NEGATIVE_TTL:-300}
+      SEARCH_AGENT_CACHE_SEARXNG_TTL: ${SEARCH_AGENT_CACHE_SEARXNG_TTL:-300}
+      SEARCH_AGENT_CACHE_STAAN_TTL: ${SEARCH_AGENT_CACHE_STAAN_TTL:-300}
+      SEARCH_AGENT_CACHE_PLANNER_TTL: ${SEARCH_AGENT_CACHE_PLANNER_TTL:-21600}
+      SEARCH_AGENT_DEBUG: ${SEARCH_AGENT_DEBUG:-false}
+
+  eventdatabase-agent:
+    image: ghcr.io/aarhusai/eventdatabasen-agent:${EVENT_DATABASE_AGENT_VERSION:-latest}
+    exposes:
+      - "8000"
+    networks:
+      - app
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${EVENT_DATABASE_SERVICE_API_KEY:?}
+      AGENT_MODEL: ${EVENT_DATABASE_AGENT_MODEL:-AarhusAI-default-v2}
+      AGENT_API_BASE_URL: ${EVENT_DATABASE_AGENT_API_BASE_URL:-https://litellm.itkdev.dk/v1}
+      AGENT_API_KEY: ${EVENT_DATABASE_AGENT_API_KEY:?}
+      AGENT_TIMEOUT: ${EVENT_DATABASE_AGENT_TIMEOUT:-30}
+      EVENT_DB_BASE_URL: ${EVENT_DATABASE_BASE_URL:?}
+      EVENT_DB_API_KEY: ${EVENT_DATABASE_API_KEY:?}
+      DEBUG: ${EVENT_DATABASE_DEBUG:-false}
+      MCP_ALLOWED_HOSTS: ${EVENT_DATABASE_MCP_ALLOWED_HOSTS:-["eventdatabase-agent:*","localhost:*"]}
+
+  retsinformation-agent:
+    image: ghcr.io/aarhusai/retsinformation-api-agent:${RETSINFORMATION_AGENT_VERSION:-latest}
+    exposes:
+      - "8000"
+    networks:
+      - app
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${RETSINFORMATION_SERVICE_API_KEY:?}
+      RETSINFO_API_BASE_URL: ${RETSINFORMATION_API_BASE_URL:-https://retsinformation-api.dk}
+      RETSINFO_API_KEY: ${RETSINFORMATION_API_KEY:-}
+      RETSINFO_TIMEOUT: ${RETSINFORMATION_TIMEOUT:-30}
+      RETSINFO_DOCUMENT_BASE_URL: ${RETSINFORMATION_DOCUMENT_BASE_URL:-https://www.retsinformation.dk}
+      ENABLE_QUERY_GENERATION: ${RETSINFORMATION_ENABLE_QUERY_GENERATION:-true}
+      LLM_MODEL: ${RETSINFORMATION_LLM_MODEL:-AarhusAI-default-v2}
+      LLM_API_BASE_URL: ${RETSINFORMATION_LLM_API_BASE_URL:-https://litellm.itkdev.dk/v1}
+      LLM_API_KEY: ${RETSINFORMATION_LLM_API_KEY:?}
+      LLM_TIMEOUT: ${RETSINFORMATION_LLM_TIMEOUT:-30}
+      SEARCH_LIMIT: ${RETSINFORMATION_SEARCH_LIMIT:-10}
+      MAX_SEARCH_TERMS: ${RETSINFORMATION_MAX_SEARCH_TERMS:-5}
+      MCP_ALLOWED_HOSTS: ${RETSINFORMATION_MCP_ALLOWED_HOSTS:-["retsinformation-agent:*","localhost:*"]}
