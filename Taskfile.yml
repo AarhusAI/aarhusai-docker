@@ -13,7 +13,7 @@ vars:
   SEARCH_AGENT_REPO: 'https://github.com/AarhusAI/search-agent.git'
   OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
   OPEN_WEBUI_VERSION: 'v0.11.3'
-  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-1'
+  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-2'
   TARGET_DIR: 'open-webui'
   INGESTION_SERVICE_VERSION: 'develop'
   INGESTION_SERVICE_DIR: 'ingestion-service'
