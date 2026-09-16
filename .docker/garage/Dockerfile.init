@@ -1,0 +1,21 @@
+# Init image for the one-shot `garage-init` bootstrap container.
+#
+# Why a build at all (instead of mounting init.sh into dxflrs/garage)?
+# The official dxflrs/garage image is a scratch image — it ships only the static
+# /garage binary, with no /bin/sh and none of the tools init.sh needs (nc, getent,
+# awk, sed). So the script can't run there, and a plain alpine has the shell + tools
+# but not the garage CLI. This copies the CLI onto alpine to get both. init.sh itself
+# is bind-mounted at runtime (see docker-compose*.yml), not baked into this image.
+#
+# GARAGE_VERSION is passed in by compose (build.args) from the GARAGE_VERSION env var
+# — the single source of truth shared with the `garage` service image in
+# docker-compose*.yml, so the CLI here always matches the running server. Bump it in
+# .env (or that env var); the default below only applies to a bare `docker build`.
+#   garage tags : https://hub.docker.com/r/dxflrs/garage/tags
+#                 (curl -s https://hub.docker.com/v2/repositories/dxflrs/garage/tags | jq -r '.results[].name')
+#   alpine tags : https://hub.docker.com/_/alpine/tags
+ARG GARAGE_VERSION=v2.2.0
+FROM dxflrs/garage:${GARAGE_VERSION} AS garage
+FROM alpine:3.21
+COPY --from=garage /garage /garage
+ENTRYPOINT []

@@ -70,6 +70,26 @@ services:
               "name": "retsinformation",
               "description": "Lookup rets-information"
             }
+          },
+          {
+            "type": "mcp",
+            "url": "http://eu-funding-agent:8000/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "bearer",
+            "key": "${EU_FOUNDING_AGENT_API_KEY:?}",
+            "config": {
+              "enable": true,
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "eufounding",
+              "name": "EU founding portal",
+              "description": "EU Funding & Tenders Portal search"
+            }
           }
         ]
 
@@ -183,3 +203,29 @@ services:
       SEARCH_LIMIT: ${RETSINFORMATION_SEARCH_LIMIT:-10}
       MAX_SEARCH_TERMS: ${RETSINFORMATION_MAX_SEARCH_TERMS:-5}
       MCP_ALLOWED_HOSTS: ${RETSINFORMATION_MCP_ALLOWED_HOSTS:-["retsinformation-agent:*","localhost:*"]}
+
+  eu-funding-agent:
+    image: ghcr.io/aarhusai/eu-funding-tenders-portal-agent:${EU_FOUNDING_AGENT_VERSION:-latest}
+    restart: unless-stopped
+    expose:
+      - "8000"
+    networks:
+      - app
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      API_KEY: ${EU_FOUNDING_SERVICE_API_KEY:?}
+      AGENT_MODEL: ${EU_FOUNDING_AGENT_MODEL:-AarhusAI-default-v2}
+      AGENT_API_BASE_URL: ${EU_FOUNDING_AGENT_API_BASE_URL:-http://litellm.itkdev.dk/v1}
+      AGENT_API_KEY: ${EU_FOUNDING_AGENT_API_KEY:?}
+      PORTAL_SEARCH_URL: ${EU_FOUNDING_AGENT_PORTAL_SEARCH_URL:-https://api.tech.ec.europa.eu/search-api/prod/rest/search}
+      PORTAL_API_KEY: ${EU_FOUNDING_AGENT_PORTAL_API_KEY:-SEDIA}
+      PORTAL_LANGUAGES: ${EU_FOUNDING_AGENT_PORTAL_LANGUAGES:-["en"]}
+      PORTAL_CACHE_TTL: ${EU_FOUNDING_AGENT_PORTAL_CACHE_TTL:-21600}
+      CACHE_BACKEND: ${EU_FOUNDING_AGENT_CACHE_BACKEND:-redis}
+      CACHE_REDIS_URL: ${EU_FOUNDING_AGENT_CACHE_REDIS_URL:-redis://redis:6379/4}
+      MCP_ALLOWED_HOSTS: ${EU_FOUNDING_AGENT_MCP_ALLOWED_HOSTS:-["eu-funding-agent:*","localhost:*"]}

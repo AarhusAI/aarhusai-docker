@@ -127,12 +127,12 @@ services:
       USER_PERMISSIONS_CHAT_IMAGE_CAPTURE: ${USER_PERMISSIONS_CHAT_IMAGE_CAPTURE:-false}
       # Postgres setup
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/postgres
-      # MinIO configuration
+      # S3 configuration
       STORAGE_PROVIDER: "s3"
-      S3_ENDPOINT_URL: "http://minio:9000"
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_BUCKET_NAME: "openwebui"
+      S3_ENDPOINT_URL: "http://garage:3900"
+      S3_ACCESS_KEY_ID: ${S3_ROOT_USER:-s3adminkey}
+      S3_SECRET_ACCESS_KEY: ${S3_ROOT_PASSWORD:-s3passwords3password}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-openwebui}
       S3_USE_SSL: "false"
       # Redis cache
       REDIS_URL: redis://redis:6379/1
@@ -326,10 +326,10 @@ services:
         condition: service_healthy
       kreuzberg:
         condition: service_healthy
-      minio:
+      garage:
         condition: service_healthy
-      minio-init:
-          condition: service_completed_successfully
+      garage-init:
+        condition: service_completed_successfully
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/db" ]
       interval: 30s
@@ -424,52 +424,51 @@ services:
       - "--chromium-disable-javascript=true"
       - "--chromium-allow-list=file:///tmp/.*"
 
-  minio-init:
-    image: minio/mc
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks:
-      - app
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc config host add myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb --ignore-existing myminio/openwebui;
-      exit 0;
-      "
-
-  minio:
-    image: minio/minio:latest
+  garage:
+    image: dxflrs/garage:${GARAGE_VERSION:-v2.4.1}
+    restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # Authenticates the RPC channel on 3901 (node-to-node and CLI-to-node).
+      # Generate using: openssl rand -hex 32
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-fa5cb32e38dbac6e15d316f783eba255bdb3e4ab5bddb7ff59ee7030482c28a4}
     networks:
       - app
-      - frontend
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - .docker/data/minio:/data
-    command: server /data --console-address ":9001"
     ports:
-      # API port
-      - "9000"
-      # Console port
-      - "9001"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=frontend"
-      # MinIO API
-      - "traefik.http.routers.minio-api-${COMPOSE_PROJECT_NAME}.rule=Host(`minio-api.${COMPOSE_DOMAIN}`)"
-      - "traefik.http.routers.minio-api-${COMPOSE_PROJECT_NAME}.service=minio-api-${COMPOSE_PROJECT_NAME}"
-      - "traefik.http.services.minio-api-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=9000"
-      # MinIO Console
-      - "traefik.http.routers.minio-console-${COMPOSE_PROJECT_NAME}.rule=Host(`minio.${COMPOSE_DOMAIN}`)"
-      - "traefik.http.routers.minio-console-${COMPOSE_PROJECT_NAME}.service=minio-console-${COMPOSE_PROJECT_NAME}"
-      - "traefik.http.services.minio-console-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=9001"
+      - "3900"
+    healthcheck:
+      test: [ "CMD", "/garage", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./.docker/data/garage/data:/var/lib/garage/data
+      - ./.docker/data/garage/meta:/var/lib/garage/meta
+      - ./.docker/garage/garage.toml:/etc/garage.toml:ro
+
+  garage-init:
+    restart: "no"
+    build:
+      context: ./.docker/garage
+      dockerfile: Dockerfile.init
+      args:
+        GARAGE_VERSION: ${GARAGE_VERSION:-v2.4.1}
+    command: [ "/bin/sh", "/init.sh" ]
+    networks:
+      - app
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      GARAGE_RPC_HOST: garage:3901
+      # Must match the garage service's value above — same default, same override.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-fa5cb32e38dbac6e15d316f783eba255bdb3e4ab5bddb7ff59ee7030482c28a4}
+      GARAGE_ACCESS_KEY: ${S3_ROOT_USER:-s3adminkey}
+      GARAGE_SECRET_KEY: ${S3_ROOT_PASSWORD:-s3passwords3password}
+      GARAGE_BUCKET: ${S3_BUCKET_NAME:-openwebui}
+    volumes:
+      - ./.docker/garage/init.sh:/init.sh:ro
+      - ./.docker/garage/garage.toml:/etc/garage.toml:ro
+      - ./.docker/data/garage/meta:/var/lib/garage/meta:ro
 
   redis:
     image: redis:7.4.2-alpine3.21
@@ -782,10 +781,10 @@ services:
       QDRANT_URI: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:-123456789}
       QDRANT_INDEX: ${QDRANT_INDEX:-ingestion_files}
-      # S3 (the dev stack's MinIO; ingestion service is storage-agnostic at the wire level)
-      S3_ENDPOINT_URL: ${INGESTION_S3_URL:-http://minio:9000}
-      S3_ACCESS_KEY_ID: ${INGESTION_S3_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${INGESTION_S3_ROOT_PASSWORD:-minioadmin}
+      # S3 storage
+      S3_ENDPOINT_URL: ${INGESTION_S3_URL:-http://garage:3900}
+      S3_ACCESS_KEY_ID: ${INGESTION_S3_ROOT_USER:-s3adminkey}
+      S3_SECRET_ACCESS_KEY: ${INGESTION_S3_ROOT_PASSWORD:-s3passwords3password}
       # Pinned to Open WebUI's S3_BUCKET_NAME so the ingestion service can only
       # fetch from the bucket Open WebUI actually stores files in. Without this
       # a stolen INGESTION_API_KEY could pull arbitrary objects.
