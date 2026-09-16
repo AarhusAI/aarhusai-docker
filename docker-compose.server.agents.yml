@@ -78,7 +78,7 @@ services:
             "spec": "",
             "path": "openapi.json",
             "auth_type": "bearer",
-            "key": "${EU_FOUNDING_AGENT_API_KEY:?}",
+            "key": "${EU_FOUNDING_SERVICE_API_KEY:?}",
             "config": {
               "enable": true,
               "access_grants": [
@@ -220,7 +220,7 @@ services:
     environment:
       API_KEY: ${EU_FOUNDING_SERVICE_API_KEY:?}
       AGENT_MODEL: ${EU_FOUNDING_AGENT_MODEL:-AarhusAI-default-v2}
-      AGENT_API_BASE_URL: ${EU_FOUNDING_AGENT_API_BASE_URL:-http://litellm.itkdev.dk/v1}
+      AGENT_API_BASE_URL: ${EU_FOUNDING_AGENT_API_BASE_URL:-https://litellm.itkdev.dk/v1}
       AGENT_API_KEY: ${EU_FOUNDING_AGENT_API_KEY:?}
       PORTAL_SEARCH_URL: ${EU_FOUNDING_AGENT_PORTAL_SEARCH_URL:-https://api.tech.ec.europa.eu/search-api/prod/rest/search}
       PORTAL_API_KEY: ${EU_FOUNDING_AGENT_PORTAL_API_KEY:-SEDIA}
