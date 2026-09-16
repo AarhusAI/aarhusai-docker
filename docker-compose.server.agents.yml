@@ -134,6 +134,7 @@ services:
 
   eventdatabase-agent:
     image: ghcr.io/aarhusai/eventdatabasen-agent:${EVENT_DATABASE_AGENT_VERSION:-latest}
+    restart: unless-stopped
     expose:
       - "8000"
     networks:
@@ -157,6 +158,7 @@ services:
 
   retsinformation-agent:
     image: ghcr.io/aarhusai/retsinformation-api-agent:${RETSINFORMATION_AGENT_VERSION:-latest}
+    restart: unless-stopped
     expose:
       - "8000"
     networks:
