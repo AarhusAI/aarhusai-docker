@@ -1,0 +1,147 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index a0855f46897b..b39248d8c5a4 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -1660,6 +1660,8 @@ def reachable(host: str, port: int) -> bool:
+ 
+ DEFAULT_PINNED_MODELS = os.getenv('DEFAULT_PINNED_MODELS', None)
+ 
++ENABLE_PROMPT_SUGGESTIONS = os.getenv('ENABLE_PROMPT_SUGGESTIONS', 'True').lower() == 'true'
++
+ try:
+     default_prompt_suggestions = JSONCodec.loads(os.getenv('DEFAULT_PROMPT_SUGGESTIONS', '[]'))
+ except Exception as e:
+@@ -3097,6 +3099,7 @@ def feishu_oauth_register(oauth: OAuth):
+     'ui.default_interface_settings': DEFAULT_INTERFACE_SETTINGS,
+     'ui.prompt_suggestions': DEFAULT_PROMPT_SUGGESTIONS,
+     'ui.model_order_list': MODEL_ORDER_LIST,
++    'ui.enable_prompt_suggestions': ENABLE_PROMPT_SUGGESTIONS,
+     'models.default_metadata': DEFAULT_MODEL_METADATA,
+     'models.default_params': DEFAULT_MODEL_PARAMS,
+     'ui.default_user_role': DEFAULT_USER_ROLE,
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index 67a14f16b2cb..178a64cf8434 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -2275,6 +2275,7 @@ async def get_app_config(request: Request):
+         'ui.pending_user_overlay_title',
+         'ui.pending_user_overlay_content',
+         'ui.watermark',
++        'ui.enable_prompt_suggestions',
+     )
+ 
+     return {
+@@ -2343,6 +2344,7 @@ async def get_app_config(request: Request):
+                     'enable_google_drive_integration': config.get('google_drive.enable'),
+                     'enable_onedrive_integration': config.get('onedrive.enable'),
+                     'enable_memories': config.get('memories.enable'),
++                    'enable_prompt_suggestions': config.get('ui.enable_prompt_suggestions'),
+                     **(
+                         {
+                             'enable_onedrive_personal': ENABLE_ONEDRIVE_PERSONAL,
+diff --git a/src/lib/components/admin/Settings/Models/ModelDefaultsPanel.svelte b/src/lib/components/admin/Settings/Models/ModelDefaultsPanel.svelte
+index 196fc212aba0..9af3c0876282 100644
+--- a/src/lib/components/admin/Settings/Models/ModelDefaultsPanel.svelte
++++ b/src/lib/components/admin/Settings/Models/ModelDefaultsPanel.svelte
+@@ -218,6 +218,7 @@
+ 					{/if}
+ 				</div>
+ 
++				{#if $appConfig?.features?.enable_prompt_suggestions}
+ 				<div>
+ 					<button
+ 						class="flex w-full items-center justify-between gap-4 py-0.5 text-left"
+@@ -245,6 +246,7 @@
+ 						</div>
+ 					{/if}
+ 				</div>
++				{/if}
+ 			</div>
+ 		{/if}
+ 	{/if}
+diff --git a/src/lib/components/chat/ChatPlaceholder.svelte b/src/lib/components/chat/ChatPlaceholder.svelte
+index e2e606b7db2b..58ea9d8635c9 100644
+--- a/src/lib/components/chat/ChatPlaceholder.svelte
++++ b/src/lib/components/chat/ChatPlaceholder.svelte
+@@ -138,10 +138,13 @@
+ 		<div class=" w-full" in:fade={{ duration: 200, delay: 300 }}>
+ 			<Suggestions
+ 				className="grid grid-cols-2"
+-				suggestionPrompts={atSelectedModel?.info?.meta?.suggestion_prompts ??
+-					models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
+-					$config?.default_prompt_suggestions ??
+-					[]}
++				suggestionPrompts={
++					$config?.features?.enable_prompt_suggestions && (
++						atSelectedModel?.info?.meta?.suggestion_prompts ??
++						models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
++						$config?.default_prompt_suggestions
++					) || []
++				}
+ 				{onSelect}
+ 			/>
+ 		</div>
+diff --git a/src/lib/components/chat/Placeholder.svelte b/src/lib/components/chat/Placeholder.svelte
+index c1839931fd1d..c1271116b605 100644
+--- a/src/lib/components/chat/Placeholder.svelte
++++ b/src/lib/components/chat/Placeholder.svelte
+@@ -280,10 +280,13 @@
+ 		<div class="mx-auto max-w-2xl mt-2" in:fade={{ duration: 200, delay: 200 }}>
+ 			<div class="mx-5">
+ 				<Suggestions
+-					suggestionPrompts={atSelectedModel?.info?.meta?.suggestion_prompts ??
+-						models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
+-						$config?.default_prompt_suggestions ??
+-						[]}
++					suggestionPrompts={
++						$config?.features?.enable_prompt_suggestions && (
++							atSelectedModel?.info?.meta?.suggestion_prompts ??
++							models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
++							$config?.default_prompt_suggestions
++						) || []
++					}
+ 					inputValue={prompt}
+ 					{onSelect}
+ 				/>
+diff --git a/src/lib/components/workspace/Models/ModelEditor.svelte b/src/lib/components/workspace/Models/ModelEditor.svelte
+index e70d61d67d4d..b992625387fb 100644
+--- a/src/lib/components/workspace/Models/ModelEditor.svelte
++++ b/src/lib/components/workspace/Models/ModelEditor.svelte
+@@ -2,7 +2,7 @@
+ 	import { toast } from 'svelte-sonner';
+ 
+ 	import { onMount, getContext, tick } from 'svelte';
+-	import { models, tools, functions, user } from '$lib/stores';
++	import { models, tools, functions, user, config } from '$lib/stores';
+ 	import { WEBUI_BASE_URL, DEFAULT_CAPABILITIES } from '$lib/constants';
+ 
+ 	import { getTools } from '$lib/apis/tools';
+@@ -882,7 +882,7 @@
+ 						</section>
+ 
+ 						<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />
+-
++						{#if $config?.features?.enable_prompt_suggestions}
+ 						<section class="my-2.5">
+ 							<div class="flex w-full items-center justify-between">
+ 								<div class="self-center text-xs text-gray-400 dark:text-gray-600">
+@@ -912,6 +912,7 @@
+ 								<PromptSuggestions bind:promptSuggestions={info.meta.suggestion_prompts} />
+ 							{/if}
+ 						</section>
++						{/if}
+ 
+ 						<div class="my-3">
+ 							<Knowledge bind:selectedItems={knowledge} />
+diff --git a/src/lib/stores/index.ts b/src/lib/stores/index.ts
+index 597372090bdd..502f74a6a2e8 100644
+--- a/src/lib/stores/index.ts
++++ b/src/lib/stores/index.ts
+@@ -358,6 +358,7 @@ type Config = {
+ 		enable_pyodide_file_persistence?: boolean;
+ 		folder_max_file_count?: number;
+ 		websocket_heartbeat_interval?: number | null;
++		enable_prompt_suggestions: boolean;
+ 	};
+ 	oauth: {
+ 		providers: {
