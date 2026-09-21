@@ -1,19 +1,9 @@
 open-webui/
 .env.docker.local
 .env
-litellm_config.yaml
-guardrails/__pycache__/
-
-# Development
-ingestion-service/
-retrieval-agent/
-search-agent/
-eventdatabasen-agent/
-retsinformation-api-agent/
 
 # Database dumps (contain user data)
 *.sql
 
 # S3/MinIO dumps (contain user files)
 /s3-dump/
-
