@@ -7,20 +7,46 @@ vars:
   # https://taskfile.dev/reference/templating/
   BASE_URL: '{{.TASK_BASE_URL | default .COMPOSE_SERVER_DOMAIN | default .COMPOSE_DOMAIN }}'
   DOCKER_COMPOSE: '{{ .TASK_DOCKER_COMPOSE | default "itkdev-docker-compose" }}'
+  
+  # Repos
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
   INGESTION_SERVICE_REPO: 'https://github.com/AarhusAI/ingestion-service.git'
   RETRIEVAL_AGENT_REPO: 'https://github.com/AarhusAI/retrieval-agent.git'
-  SEARCH_AGENT_REPO: 'https://github.com/AarhusAI/search-agent.git'
+
+  # Versions
   OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
   OPEN_WEBUI_VERSION: 'v0.11.3'
   PROD_OPEN_WEBUI_VERSION: 'v0.11.3-2'
   TARGET_DIR: 'open-webui'
+
+  # Core RAG setup
   INGESTION_SERVICE_VERSION: 'develop'
   INGESTION_SERVICE_DIR: 'ingestion-service'
   RETRIEVAL_AGENT_VERSION: 'develop'
   RETRIEVAL_AGENT_DIR: 'retrieval-agent'
-  SEARCH_AGENT_VERSION: 'develop'
-  SEARCH_AGENT_DIR: 'search-agent'
+
+  AGENTS:
+    - name: 'Web-search agent'
+      url: 'https://github.com/AarhusAI/search-agent.git'
+      branch: 'develop'
+      path: 'agents/search-agent'
+    - name: 'Eventdatabase agent'
+      url: 'https://github.com/AarhusAI/eventdatabasen-agent.git'
+      branch: 'main'
+      path: 'agents/eventdatabasen-agent'
+    - name: 'Rets-information API'
+      url: 'https://github.com/AarhusAI/retsinformation-api-agent.git'
+      branch: 'develop'
+      path: 'agents/retsinformation-api-agent'
+    - name: 'Office agent (build docs,xls and ppt)'
+      url: 'https://github.com/AarhusAI/office-agent.git'
+      branch: 'develop'
+      path: 'agents/office-agent'
+    - name: 'EU funding portal agent'
+      url: 'https://github.com/AarhusAI/eu-funding-tenders-portal-agent.git'
+      branch: 'main'
+      path: 'agents/eu-funding-tenders-portal-agent'
+    
   PATCHES:
     - name: 'Pinned info banner'
       url: 'https://patch-diff.githubusercontent.com/raw/os2ai/open-webui/pull/1.diff'
@@ -87,6 +113,35 @@ tasks:
         platforms: [arm64]
 
   ####
+  ## Agents helpers
+  ####
+  agents:clone:
+    desc: "Clone all agents from GitHub (loops over AGENTS)"
+    cmds:
+      - for: { var: AGENTS }
+        cmd: |
+          if [ -d "{{ .ITEM.path }}" ]; then
+            echo "Skipping '{{ .ITEM.name }}': {{ .ITEM.path }} already exists"
+          else
+            echo "Cloning '{{ .ITEM.name }}' ({{ .ITEM.branch }}) -> {{ .ITEM.path }}"
+            git clone --branch {{ .ITEM.branch }} {{ .ITEM.url }} {{ .ITEM.path }}
+          fi
+    silent: true
+
+  agents:update:
+    desc: "Pull latest for all cloned agents (loops over AGENTS)"
+    cmds:
+      - for: { var: AGENTS }
+        cmd: |
+          if [ -d "{{ .ITEM.path }}" ]; then
+            echo "Pulling '{{ .ITEM.name }}' -> {{ .ITEM.path }}"
+            git -C "{{ .ITEM.path }}" pull
+          else
+            echo "Skipping '{{ .ITEM.name }}': {{ .ITEM.path }} does not exist (run agents:clone)"
+          fi
+    silent: true
+
+  ####
   ## Git helpers
   ####
   git:sync:tags:
@@ -126,13 +181,6 @@ tasks:
     cmds:
       - git clone {{ .RETRIEVAL_AGENT_REPO }} {{ .RETRIEVAL_AGENT_DIR }}
       - cd "{{ .RETRIEVAL_AGENT_DIR }}" && git checkout {{ .RETRIEVAL_AGENT_VERSION }}
-    silent: true
-
-  git:clone:search:
-    desc: "Clone search-agent"
-    cmds:
-      - git clone {{ .SEARCH_AGENT_REPO }} {{ .SEARCH_AGENT_DIR }}
-      - cd "{{ .SEARCH_AGENT_DIR }}" && git checkout {{ .SEARCH_AGENT_VERSION }}
     silent: true
 
   git:checkout:dev:
@@ -240,7 +288,6 @@ tasks:
       - task patch:aarhus
       - if [ ! -d "{{ .INGESTION_SERVICE_DIR }}" ]; then task git:clone:ingestion; fi
       - if [ ! -d "{{ .RETRIEVAL_AGENT_DIR }}" ]; then task git:clone:retrieval; fi
-      - if [ ! -d "{{ .SEARCH_AGENT_DIR }}" ]; then task git:clone:search; fi
       - task copy:config
       - task compose -- pull
       - task compose -- up --detach --force-recreate
