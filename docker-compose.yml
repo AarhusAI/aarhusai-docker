@@ -452,7 +452,6 @@ services:
       dockerfile: Dockerfile.init
       args:
         GARAGE_VERSION: ${GARAGE_VERSION:-v2.4.1}
-        MC_VERSION: ${MC_VERSION:-RELEASE.2025-08-13T08-35-41Z}
     command: [ "/bin/sh", "/init.sh" ]
     networks:
       - app

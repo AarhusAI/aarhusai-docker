@@ -14,14 +14,10 @@
 #   garage tags : https://hub.docker.com/r/dxflrs/garage/tags
 #                 (curl -s https://hub.docker.com/v2/repositories/dxflrs/garage/tags | jq -r '.results[].name')
 #   alpine tags : https://hub.docker.com/_/alpine/tags
-#   mc tags     : https://hub.docker.com/r/minio/mc/tags
 ARG GARAGE_VERSION=v2.2.0
-ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
 FROM dxflrs/garage:${GARAGE_VERSION} AS garage
-FROM minio/mc:${MC_VERSION} AS mc
 FROM alpine:3.21
 COPY --from=garage /garage /garage
-# mc (MinIO client) for the s3:dump / s3:import Taskfile targets — not in alpine repos.
-# Multi-arch image; Docker pulls the build host's arch automatically.
-COPY --from=mc /usr/bin/mc /usr/local/bin/mc
+# rclone for the s3:dump / s3:import Taskfile targets (S3 sync).
+RUN apk add --no-cache rclone
 ENTRYPOINT []

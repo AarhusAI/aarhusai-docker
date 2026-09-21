@@ -419,9 +419,9 @@ tasks:
       BUCKET: 'openwebui'
     cmds:
       - mkdir -p {{ .DUMP_DIR }}
-      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh garage-init -c "mc alias set local http://garage:3900 ${INGESTION_S3_ROOT_USER:-s3adminkey} ${S3_ROOT_PASSWORD:-s3passwords3password} && mc mirror --overwrite --remove local/{{ .BUCKET }} /dump"'
+      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P garage:{{ .BUCKET }} /dump'
         platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh garage-init -c "mc alias set local http://garage:3900 ${INGESTION_S3_ROOT_USER:-s3adminkey} ${S3_ROOT_PASSWORD:-s3passwords3password} && mc mirror --overwrite --remove local/{{ .BUCKET }} /dump"'
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P garage:{{ .BUCKET }} /dump'
         platforms: [arm64]
       - echo "Dumped S3 bucket '{{ .BUCKET }}' to {{ .DUMP_DIR }}/ (use scp/rsync to move it)"
     silent: true
@@ -441,9 +441,9 @@ tasks:
           echo "Import cancelled."
           exit 1
         fi
-      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh garage-init -c "mc alias set local http://garage:3900 ${INGESTION_S3_ROOT_USER:-s3adminkey} ${S3_ROOT_PASSWORD:-s3passwords3password} && mc mb --ignore-existing local/{{ .BUCKET }} && mc mirror --overwrite --remove /dump local/{{ .BUCKET }}"'
+      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P /dump garage:{{ .BUCKET }}'
         platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint /bin/sh garage-init -c "mc alias set local http://garage:3900 ${INGESTION_S3_ROOT_USER:-s3adminkey} ${S3_ROOT_PASSWORD:-s3passwords3password} && mc mb --ignore-existing local/{{ .BUCKET }} && mc mirror --overwrite --remove /dump local/{{ .BUCKET }}"'
+      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P /dump garage:{{ .BUCKET }}'
         platforms: [arm64]
       - echo "Imported {{ .DUMP_DIR }}/ into the S3 bucket '{{ .BUCKET }}'"
     silent: true
