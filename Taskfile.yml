@@ -7,11 +7,7 @@ vars:
   # https://taskfile.dev/reference/templating/
   BASE_URL: '{{.TASK_BASE_URL | default .COMPOSE_SERVER_DOMAIN | default .COMPOSE_DOMAIN }}'
   DOCKER_COMPOSE: '{{ .TASK_DOCKER_COMPOSE | default "itkdev-docker-compose" }}'
-  
-  # Repos
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
-  INGESTION_SERVICE_REPO: 'https://github.com/AarhusAI/ingestion-service.git'
-  RETRIEVAL_AGENT_REPO: 'https://github.com/AarhusAI/retrieval-agent.git'
 
   # Versions
   OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
@@ -19,11 +15,15 @@ vars:
   PROD_OPEN_WEBUI_VERSION: 'v0.11.3-2'
   TARGET_DIR: 'open-webui'
 
-  # Core RAG setup
-  INGESTION_SERVICE_VERSION: 'develop'
-  INGESTION_SERVICE_DIR: 'ingestion-service'
-  RETRIEVAL_AGENT_VERSION: 'develop'
-  RETRIEVAL_AGENT_DIR: 'retrieval-agent'
+  RAG:
+    - name: 'Ingestion service'
+      url: 'https://github.com/AarhusAI/ingestion-service.git'
+      branch: 'main'
+      path: 'ingestion-service'
+    - name: 'Retrival agent'
+      url: 'https://github.com/AarhusAI/retrieval-agent.git'
+      branch: 'main'
+      path: 'RAG/retrieval-agent'
 
   AGENTS:
     - name: 'Web-search agent'
@@ -142,6 +142,35 @@ tasks:
     silent: true
 
   ####
+  ## RAG helpers
+  ####
+  rag:clone:
+    desc: "Clone all RAG services from GitHub (loops over RAG)"
+    cmds:
+      - for: { var: RAG }
+        cmd: |
+          if [ -d "{{ .ITEM.path }}" ]; then
+            echo "Skipping '{{ .ITEM.name }}': {{ .ITEM.path }} already exists"
+          else
+            echo "Cloning '{{ .ITEM.name }}' ({{ .ITEM.branch }}) -> {{ .ITEM.path }}"
+            git clone --branch {{ .ITEM.branch }} {{ .ITEM.url }} {{ .ITEM.path }}
+          fi
+    silent: true
+
+  rag:update:
+    desc: "Pull latest for all cloned RAG services (loops over RAG)"
+    cmds:
+      - for: { var: RAG }
+        cmd: |
+          if [ -d "{{ .ITEM.path }}" ]; then
+            echo "Pulling '{{ .ITEM.name }}' -> {{ .ITEM.path }}"
+            git -C "{{ .ITEM.path }}" pull
+          else
+            echo "Skipping '{{ .ITEM.name }}': {{ .ITEM.path }} does not exist (run rag:clone)"
+          fi
+    silent: true
+
+  ####
   ## Git helpers
   ####
   git:sync:tags:
@@ -167,20 +196,6 @@ tasks:
     cmds:
       - git clone {{ .OPEN_WEBUI_REPO }}
       - cd "{{ .TARGET_DIR }}" && git checkout {{ .OPEN_WEBUI_VERSION }}
-    silent: true
-
-  git:clone:ingestion:
-    desc: "Clone ingestion-service"
-    cmds:
-      - git clone {{ .INGESTION_SERVICE_REPO }} {{ .INGESTION_SERVICE_DIR }}
-      - cd "{{ .INGESTION_SERVICE_DIR }}" && git checkout {{ .INGESTION_SERVICE_VERSION }}
-    silent: true
-
-  git:clone:retrieval:
-    desc: "Clone retrieval-agent"
-    cmds:
-      - git clone {{ .RETRIEVAL_AGENT_REPO }} {{ .RETRIEVAL_AGENT_DIR }}
-      - cd "{{ .RETRIEVAL_AGENT_DIR }}" && git checkout {{ .RETRIEVAL_AGENT_VERSION }}
     silent: true
 
   git:checkout:dev:
@@ -286,8 +301,7 @@ tasks:
       - if [ ! -d "{{ .TARGET_DIR }}" ]; then task git:clone; fi
       - task git:reset
       - task patch:aarhus
-      - if [ ! -d "{{ .INGESTION_SERVICE_DIR }}" ]; then task git:clone:ingestion; fi
-      - if [ ! -d "{{ .RETRIEVAL_AGENT_DIR }}" ]; then task git:clone:retrieval; fi
+      - task rag:clone
       - task copy:config
       - task compose -- pull
       - task compose -- up --detach --force-recreate

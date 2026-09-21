@@ -493,7 +493,7 @@ services:
     #image: ghcr.io/aarhusai/retrieval-agent:latest
     build:
       dockerfile: Dockerfile
-      context: ./retrieval-agent
+      context: ./RAG/retrieval-agent
       target: dev
     command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     networks:
@@ -568,7 +568,7 @@ services:
       HF_HOME: /cache/hf
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
-      - ./retrieval-agent/:/app
+      - ./RAG/retrieval-agent/:/app
       - retrieval_model_cache:/cache
     labels:
       - "traefik.enable=true"
@@ -586,7 +586,7 @@ services:
     #image: ghcr.io/aarhusai/ingestion-service:latest
     build:
       dockerfile: Dockerfile
-      context: ./ingestion-service
+      context: ./RAG/ingestion-service
       target: dev
     command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     networks:
@@ -721,7 +721,7 @@ services:
       HF_HOME: /cache/hf
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
-      - ./ingestion-service/:/app
+      - ./RAG/ingestion-service/:/app
       - ingestion_model_cache:/cache
     labels:
       - "traefik.enable=true"
