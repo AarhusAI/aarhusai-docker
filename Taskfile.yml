@@ -317,7 +317,6 @@ tasks:
   copy:config:
     desc: "Copy config file from example, if it does not exist"
     cmds:
-      - if ! [ -f litellm_config.yaml ]; then cp litellm_config.example.yaml litellm_config.yaml; fi
       - if ! [ -f .env ]; then cp .env.default .env; fi
     silent: true
 
@@ -357,11 +356,6 @@ tasks:
       - task compose -- run --rm -it -e ENV=dev node npm ci --force
       - task compose -- run --rm -it -e ENV=dev node npm run build
     silent: true
-
-  guardrails:test:
-    desc: "Run pytest against guardrails/ inside a one-shot litellm container"
-    cmds:
-      - docker compose -f docker-compose.yml -f docker-compose.extra.yml run --rm --no-deps --entrypoint "" litellm sh -c "pip install --quiet pytest && pytest /app/custom_guardrails/ -v"
 
   ####
   ## Database helpers
