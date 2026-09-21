@@ -24,9 +24,9 @@ files — it runs on GPU servers and Open WebUI reaches it over the network
 | `gotenberg`             | both   | Office/HTML → PDF conversion (port 3000)                                                  |
 | `retrieval`             | both   | External RAG retrieval agent (`RAG/retrieval-agent`, port 8000)                           |
 | `ingestion`             | both   | External RAG ingestion service (`RAG/ingestion-service`, port 8000)                       |
+| `garage`                | both   | S3-compatible object storage (Garage, API 3900 / RPC 3901)                                |
+| `garage-init`           | both   | One-shot: creates the S3 bucket and access keys in Garage                                 |
 | `node`                  | dev    | One-shot Node container for the Vite frontend build                                       |
-| `garage`                | dev    | S3-compatible object storage (Garage, API 3900 / RPC 3901)                                |
-| `garage-init`           | dev    | One-shot: creates the S3 bucket and access keys in Garage                                 |
 | `search-agent`          | agents | Web-search MCP tool server (port 8001)                                                    |
 | `eventdatabase-agent`   | agents | Event-database MCP tool server (port 8000)                                                |
 | `retsinformation-agent` | agents | Retsinformation-API MCP tool server (port 8000)                                           |
