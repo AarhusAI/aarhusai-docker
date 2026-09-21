@@ -12,7 +12,7 @@ vars:
   # Versions
   OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
   OPEN_WEBUI_VERSION: 'v0.11.3'
-  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-2'
+  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-3'
   TARGET_DIR: 'open-webui'
 
   RAG:
@@ -96,6 +96,10 @@ vars:
     - name: 'Expose file metadata URL in citation modal'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/44.diff'
       branch: 'feature/citation-modal-url'
+    # Tidy feebback support
+    - name: 'Added tidy feedback to pages behind login'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/57.diff'
+      branch: 'feature/feedback-tool'
 
 tasks:
   default:
@@ -543,7 +547,7 @@ tasks:
       - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
-            git push origin {{ .ITEM.branch }} --force
+            git push origin {{ .ITEM.branch }} --force-with-lease
           else
             echo "No branch specified for this '{{ .ITEM.name }}', skipping push"
           fi
