@@ -18,4 +18,10 @@ ARG GARAGE_VERSION=v2.2.0
 FROM dxflrs/garage:${GARAGE_VERSION} AS garage
 FROM alpine:3.21
 COPY --from=garage /garage /garage
+# mc (MinIO client) for the s3:dump / s3:import Taskfile targets — not in alpine repos.
+RUN apk add --no-cache ca-certificates \
+    && arch="$(uname -m)" \
+    && case "$arch" in x86_64) mcarch=amd64;; aarch64) mcarch=arm64;; *) echo "unsupported arch: $arch" >&2; exit 1;; esac \
+    && wget -qO /usr/local/bin/mc "https://dl.min.io/client/mc/release/linux-${mcarch}/mc" \
+    && chmod +x /usr/local/bin/mc
 ENTRYPOINT []
