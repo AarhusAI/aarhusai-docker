@@ -1,3 +1,6 @@
+include:
+  - docker-compose.office.yml
+
 networks:
   frontend:
     external: true
@@ -89,6 +92,27 @@ services:
               "id": "eufounding",
               "name": "EU founding portal",
               "description": "EU Funding & Tenders Portal search"
+            }
+          },
+          {
+            "type": "mcp",
+            "url": "http://office-mcp:8000/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "bearer",
+            "key": "${OFFICE_SERVICE_API_KEY:-office-agent-dev-api-key-0123456789abcdef}",
+            "headers": { "X-Sandbox-Key": "{{CHAT_ID}}" },
+            "config": {
+              "enable": ${OFFICE_TOOLS:-false},
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "office",
+              "name": "Office documents",
+              "description": "Generate and inspect docx/xlsx/pptx files"
             }
           }
         ]
@@ -220,10 +244,10 @@ services:
 
 
   eu-funding-agent:
-    image: ghcr.io/aarhusai/eu-funding-tenders-portal-agent:${EU_FOUNDING_AGENT_VERSION:-latest}
+    #image: ghcr.io/aarhusai/eu-funding-tenders-portal-agent:${EU_FOUNDING_AGENT_VERSION:-latest}
     build:
-      dockerfile: Dockerfile
       context: ./agents/eu-funding-tenders-portal-agent
+      dockerfile: Dockerfile
       target: ${TARGET:-dev}
     ports:
       - "8000"

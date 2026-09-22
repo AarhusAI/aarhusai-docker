@@ -1,0 +1,116 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+  office-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  office-egress:
+
+services:
+  # Build-only: produces the sandbox image on the host daemon, then exits.
+  office-runner:
+    profiles: ["office"]
+    build:
+      context: ./agents/office-agent/office-runner
+      dockerfile: Dockerfile
+    image: ${OFFICE_SANDBOX_IMAGE:-office-runner:dev}
+    command: ["python", "-c", "pass"]
+    restart: "no"
+    network_mode: none
+
+  office-mcp:
+    profiles: ["office"]
+    build:
+      dockerfile: Dockerfile
+      context: ./agents/office-agent/office-mcp
+      target: ${TARGET:-dev}
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    networks:
+      - app
+      - frontend
+      - office-internal
+    ports:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - sandbox-runner
+    environment:
+      API_KEY: ${OFFICE_SERVICE_API_KEY:-office-agent-dev-api-key-0123456789abcdef}
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN:-webui.local.itkdev.dk}}
+      SANDBOX_RUNNER_URL: ${OFFICE_SANDBOX_RUNNER_URL:-http://sandbox-runner:8000}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+    volumes:
+      - ./agents/office-agent/office-mcp:/app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.rule=Host(`${COMPOSE_DOMAIN:-webui.local.itkdev.dk}`) && PathPrefix(`/files/`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+  sandbox-runner:
+    profiles: ["office"]
+    build:
+      dockerfile: Dockerfile
+      context: ./agents/office-agent/sandbox-runner
+      target: ${TARGET:-dev}
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    networks:
+      - office-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      office-runner:
+        condition: service_completed_successfully
+    group_add:
+      - "${DOCKER_GID:-999}"
+    environment:
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runc}
+      SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-runner:dev}
+      SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+    volumes:
+      - ./agents/office-agent/sandbox-runner:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - office-egress:/egress
+
+  soffice-svc:
+    profiles: ["office"]
+    build:
+      dockerfile: Dockerfile
+      context: ./agents/office-agent/soffice-svc
+      target: ${TARGET:-dev}
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    runtime: ${SANDBOX_RUNTIME:-runc}
+    mem_limit: ${SOFFICE_MEM_LIMIT:-1g}
+    pids_limit: ${SOFFICE_PIDS_LIMIT:-512}
+    restart: unless-stopped
+    networks:
+      - office-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+    volumes:
+      - ./agents/office-agent/soffice-svc:/app
