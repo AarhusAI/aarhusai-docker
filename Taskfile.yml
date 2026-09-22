@@ -44,7 +44,7 @@ vars:
       path: 'agents/office-agent'
     - name: 'EU funding portal agent'
       url: 'https://github.com/AarhusAI/eu-funding-tenders-portal-agent.git'
-      branch: 'main'
+      branch: 'develop'
       path: 'agents/eu-funding-tenders-portal-agent'
     
   PATCHES:
