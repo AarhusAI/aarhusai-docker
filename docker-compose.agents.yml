@@ -104,8 +104,6 @@ services:
       - '8001'
     networks:
       - app
-    depends_on:
-      - searxng
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" ]
       interval: 15s
