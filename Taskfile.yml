@@ -111,10 +111,7 @@ tasks:
   compose:
     desc: "Run `docker compose` command. Example: task compose -- up --detach"
     cmds:
-      - cmd: '{{ .DOCKER_COMPOSE }} {{ .CLI_ARGS }}'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml {{ .CLI_ARGS }}'
-        platforms: [arm64]
+      - '{{ .DOCKER_COMPOSE }} {{ .CLI_ARGS }}'
 
   ####
   ## Agents helpers
@@ -369,10 +366,7 @@ tasks:
     vars:
       DUMP_FILE: '{{ .CLI_ARGS | default "dump.sql" }}'
     cmds:
-      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" --clean --if-exists -d postgres > {{ .DUMP_FILE }}'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" --clean --if-exists -d postgres > {{ .DUMP_FILE }}'
-        platforms: [arm64]
+      - 'task compose -- exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" --clean --if-exists -d postgres > {{ .DUMP_FILE }}'
       - echo "Dumped Open WebUI database to {{ .DUMP_FILE }}"
     silent: true
 
@@ -390,14 +384,8 @@ tasks:
           echo "Import cancelled."
           exit 1
         fi
-      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
-        platforms: [arm64]
-      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
-        platforms: [arm64]
+      - 'task compose -- exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+      - 'task compose -- exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
       - echo "Imported {{ .DUMP_FILE }} into the Open WebUI database"
     silent: true
 
@@ -406,10 +394,7 @@ tasks:
     vars:
       CSV_FILE: '{{ .CLI_ARGS | default "users.csv" }}'
     cmds:
-      - cmd: '{{ .DOCKER_COMPOSE }} exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "\copy (SELECT name, email, role, to_char(to_timestamp(last_active_at), ''YYYY-MM-DD HH24:MI:SS'') AS last_active_at FROM \"user\" ORDER BY last_active_at DESC) TO STDOUT WITH CSV HEADER" > {{ .CSV_FILE }}'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "\copy (SELECT name, email, role, to_char(to_timestamp(last_active_at), ''YYYY-MM-DD HH24:MI:SS'') AS last_active_at FROM \"user\" ORDER BY last_active_at DESC) TO STDOUT WITH CSV HEADER" > {{ .CSV_FILE }}'
-        platforms: [arm64]
+      - 'task compose -- exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "\copy (SELECT name, email, role, to_char(to_timestamp(last_active_at), ''YYYY-MM-DD HH24:MI:SS'') AS last_active_at FROM \"user\" ORDER BY last_active_at DESC) TO STDOUT WITH CSV HEADER" > {{ .CSV_FILE }}'
       - echo "Exported Open WebUI users to {{ .CSV_FILE }}"
     silent: true
 
@@ -423,10 +408,7 @@ tasks:
       BUCKET: 'openwebui'
     cmds:
       - mkdir -p {{ .DUMP_DIR }}
-      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P garage:{{ .BUCKET }} /dump'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P garage:{{ .BUCKET }} /dump'
-        platforms: [arm64]
+      - 'task compose -- run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P garage:{{ .BUCKET }} /dump'
       - echo "Dumped S3 bucket '{{ .BUCKET }}' to {{ .DUMP_DIR }}/ (use scp/rsync to move it)"
     silent: true
 
@@ -445,10 +427,7 @@ tasks:
           echo "Import cancelled."
           exit 1
         fi
-      - cmd: '{{ .DOCKER_COMPOSE }} run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P /dump garage:{{ .BUCKET }}'
-        platforms: [amd64]
-      - cmd: '{{ .DOCKER_COMPOSE }} -f docker-compose.arm.yml run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P /dump garage:{{ .BUCKET }}'
-        platforms: [arm64]
+      - 'task compose -- run --rm -T --user "$(id -u):$(id -g)" -e RCLONE_CONFIG=/tmp/rclone.conf -e RCLONE_CONFIG_GARAGE_TYPE=s3 -e RCLONE_CONFIG_GARAGE_PROVIDER=Other -e RCLONE_CONFIG_GARAGE_ENDPOINT=http://garage:3900 -e RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID=${INGESTION_S3_ROOT_USER:-s3adminkey} -e RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY=${S3_ROOT_PASSWORD:-s3passwords3password} -v "${PWD}/{{ .DUMP_DIR }}:/dump" --entrypoint rclone garage-init sync -P /dump garage:{{ .BUCKET }}'
       - echo "Imported {{ .DUMP_DIR }}/ into the S3 bucket '{{ .BUCKET }}'"
     silent: true
 

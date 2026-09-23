@@ -10,7 +10,7 @@ at [https://github.com/AarhusAI/](https://github.com/AarhusAI/)-
 
 Two compose stacks exist. `docker-compose.yml` is the **local dev** stack (builds `open-webui/` from source, Garage for
 S3). `docker-compose.server.yml` is the **production/server** stack (pulls the prebuilt `itkdev/openwebui` image, Garage
-for S3, SearXNG). Overlays add ARM support and agents. The LiteLLM model gateway is **not** part of these compose
+for S3, SearXNG). Overlays add agents. The LiteLLM model gateway is **not** part of these compose
 files — it runs on GPU servers and Open WebUI reaches it over the network
 (see [Connecting Open WebUI to LiteLLM](#connecting-open-webui-to-litellm)).
 
@@ -38,12 +38,9 @@ reach the UI through Traefik at `http://${COMPOSE_DOMAIN}`.
 
 ### Compose layering
 
-`task compose` runs `docker-compose.yml` on amd64 and `docker-compose.yml -f docker-compose.arm.yml` on arm64. Other
-overlays are added with extra `-f` flags (or via `include:`):
+`task compose` runs `docker-compose.yml`. Overlays are added with extra `-f` flags (or via `include:`):
 
 - **base** — `docker-compose.yml`: dev stack, builds `openwebui` from `open-webui/`.
-- **arm** — `docker-compose.arm.yml`: overrides `openwebui.build.platforms` to `linux/arm64`. Auto-applied by
-  `task compose` on arm64.
 - **server** — `docker-compose.server.yml`: standalone production stack (prebuilt image, SearXNG). Not layered on base.
 - **agents** — `docker-compose.agents.yml` (dev, builds from `agents/*`) / `docker-compose.server.agents.yml` (prod,
   prebuilt images). Both override `openwebui.TOOL_SERVER_CONNECTIONS` to register the MCP tool servers.
@@ -82,8 +79,8 @@ graph TD
 - **curl** — patch tasks pipe PR `.diff` URLs into `git apply`.
 - Access to the `AarhusAI/*` GitHub repos (fork + agents + RAG services).
 
-**ARM / Apple Silicon:** `task compose` auto-adds `docker-compose.arm.yml` on arm64 hosts, which builds `openwebui` for
-`linux/arm64`. The `db:*` and `s3:*` tasks apply the same overlay automatically on arm64.
+**ARM / Apple Silicon:** `openwebui` builds for the host architecture, so arm64 hosts get `linux/arm64` images without
+extra configuration.
 
 ## Quick start
 
@@ -277,8 +274,8 @@ Production images build the `openwebui` service from `docker-compose.yml`
 
 The server stack (`docker-compose.server.yml`) consumes `itkdev/openwebui:${OPENWEBUI_VERSION:-latest}`.
 
-Build for `linux/arm64` by adding `-f docker-compose.arm.yml` (auto-applied by `task compose` on arm64 hosts), which
-sets `openwebui.build.platforms`.
+Images build for the host architecture. To build for another platform, set `DOCKER_DEFAULT_PLATFORM`, e.g.
+`DOCKER_DEFAULT_PLATFORM=linux/amd64 task prod:build:aarhusai` on an arm64 host.
 
 ## Related repositories
 
