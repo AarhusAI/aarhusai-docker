@@ -346,16 +346,16 @@ tasks:
     desc: "Build frontend"
     cmds:
       - task: wui:npmrc
-      - task compose -- run --rm -it node npm ci --force
-      - task compose -- run --rm -it node npm run build
+      - task compose -- run --rm node npm ci --force
+      - task compose -- run --rm node npm run build
     silent: true
 
   wui:frontend:dev:build:
     desc: "Build frontend with environment set to dev"
     cmds:
       - task: wui:npmrc
-      - task compose -- run --rm -it -e ENV=dev node npm ci --force
-      - task compose -- run --rm -it -e ENV=dev node npm run build
+      - task compose -- run --rm -e ENV=dev node npm ci --force
+      - task compose -- run --rm -e ENV=dev node npm run build
     silent: true
 
   ####
