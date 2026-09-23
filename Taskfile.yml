@@ -446,16 +446,6 @@ tasks:
           echo "Install cancelled."
           exit 1
         fi
-      - for: { var: PATCHES }
-        cmd: |
-          if [ -n "{{ .ITEM.branch }}" ]; then
-            echo "Processing patch: {{ .ITEM.name }}"
-            git checkout {{ .ITEM.branch }}
-            git pull
-            git rebase --onto upstream/{{ .OPEN_WEBUI_VERSION }} upstream/{{ .OPEN_WEBUI_PREV_VERSION }}
-          else
-            echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
-          fi
       - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
@@ -481,16 +471,6 @@ tasks:
           echo "Install cancelled."
           exit 1
         fi
-      - for: { var: PATCHES }
-        cmd: |
-          if [ -n "{{ .ITEM.branch }}" ]; then
-            echo "Resetting patch: {{ .ITEM.name }}"
-            git checkout {{ .ITEM.branch }}
-            git reset --hard origin/{{ .ITEM.branch }}
-            git pull
-          else
-            echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
-          fi
       - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
@@ -516,13 +496,6 @@ tasks:
           echo "Push cancelled."
           exit 1
         fi
-      - for: { var: PATCHES }
-        cmd: |
-          if [ -n "{{ .ITEM.branch }}" ]; then
-            git push origin {{ .ITEM.branch }} --force
-          else
-            echo "No branch specified for this '{{ .ITEM.name }}', skipping push"
-          fi
       - for: { var: PATCHES_AARHUS }
         cmd: |
           if [ -n "{{ .ITEM.branch }}" ]; then
