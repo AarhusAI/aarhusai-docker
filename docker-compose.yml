@@ -421,7 +421,6 @@ services:
 
   garage:
     image: dxflrs/garage:${GARAGE_VERSION:-v2.4.1}
-    restart: unless-stopped
     environment:
       # Authenticates the RPC channel on 3901 (node-to-node and CLI-to-node).
       # Generate using: openssl rand -hex 32
