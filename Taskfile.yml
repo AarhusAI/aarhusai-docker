@@ -19,7 +19,7 @@ vars:
     - name: 'Ingestion service'
       url: 'https://github.com/AarhusAI/ingestion-service.git'
       branch: 'main'
-      path: 'ingestion-service'
+      path: 'RAG/ingestion-service'
     - name: 'Retrival agent'
       url: 'https://github.com/AarhusAI/retrieval-agent.git'
       branch: 'main'
