@@ -12,7 +12,7 @@ vars:
   # Versions
   OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
   OPEN_WEBUI_VERSION: 'v0.11.3'
-  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-3'
+  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-4'
   TARGET_DIR: 'open-webui'
 
   RAG:
