@@ -425,6 +425,9 @@ services:
       # Authenticates the RPC channel on 3901 (node-to-node and CLI-to-node).
       # Generate using: openssl rand -hex 32
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-fa5cb32e38dbac6e15d316f783eba255bdb3e4ab5bddb7ff59ee7030482c28a4}
+      # Bearer token for the admin API on 3903 (used by garage-webui).
+      # Generate using: openssl rand -base64 32
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-garage-dev-admin-token}
     networks:
       - app
     ports:
@@ -463,6 +466,30 @@ services:
       - ./.docker/garage/init.sh:/init.sh:ro
       - ./.docker/garage/garage.toml:/etc/garage.toml:ro
       - ./.docker/data/garage/meta:/var/lib/garage/meta:ro
+
+  garage-webui:
+    image: khairul169/garage-webui:latest
+    networks:
+      - app
+      - frontend
+    ports:
+      - "3909"
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: "http://garage:3903"
+      # Must match the garage service's GARAGE_ADMIN_TOKEN — same default, same override.
+      API_ADMIN_KEY: ${GARAGE_ADMIN_TOKEN:-garage-dev-admin-token}
+      S3_ENDPOINT_URL: "http://garage:3900"
+    volumes:
+      # Read for s3_region / s3_web root_domain; admin URL + key come from env above.
+      - ./.docker/garage/garage.toml:/etc/garage.toml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-garage-webui.rule=Host(`garage-${COMPOSE_DOMAIN}`)"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-garage-webui.loadbalancer.server.port=3909"
 
   redis:
     image: redis:7.4.2-alpine3.21
