@@ -13,12 +13,12 @@ volumes:
 
 services:
   # Build-only: produces the sandbox image on the host daemon, then exits.
-  office-runner:
+  office-sandbox:
     build:
-      context: ./agents/office-agent/office-runner
+      context: ./agents/office-agent/office-sandbox
       dockerfile: Dockerfile
     # Image need here as this is first executed by the office sandbox runner.
-    image: ${OFFICE_SANDBOX_IMAGE:-office-runner:dev}
+    image: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
     command: ["python", "-c", "pass"]
     restart: "no"
     network_mode: none
@@ -73,14 +73,14 @@ services:
       retries: 3
       start_period: 10s
     depends_on:
-      office-runner:
+      office-sandbox:
         condition: service_completed_successfully
     group_add:
       - "${DOCKER_GID:-999}"
     environment:
       INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
       SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runc}
-      SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-runner:dev}
+      SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
       SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
     volumes:
