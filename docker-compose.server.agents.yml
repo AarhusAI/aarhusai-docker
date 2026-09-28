@@ -90,6 +90,27 @@ services:
               "name": "EU founding portal",
               "description": "EU Funding & Tenders Portal search"
             }
+          },
+          {
+            "type": "mcp",
+            "url": "http://office-mcp:8000/mcp",
+            "spec_type": "url",
+            "spec": "",
+            "path": "openapi.json",
+            "auth_type": "bearer",
+            "key": "${OFFICE_SERVICE_API_KEY:?}",
+            "headers": { "X-Sandbox-Key": "{{CHAT_ID}}" },
+            "config": {
+              "enable": ${OFFICE_TOOLS:-false},
+              "access_grants": [
+                { "principal_type": "user", "principal_id": "*", "permission": "read" }
+              ]
+            },
+            "info": {
+              "id": "office",
+              "name": "Office documents",
+              "description": "Generate and inspect docx/xlsx/pptx files"
+            }
           }
         ]
 
