@@ -15,6 +15,7 @@ services:
   office-sandbox:
     # Only here to download the image at start up and docker compose pull.
     image: ghcr.io/aarhusai/office-sandbox:${OFFICE_SANDBOX_VERSION:-latest}
+    command: ["python", "-c", "pass"]
     restart: "no"
     network_mode: none
 
