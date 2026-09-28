@@ -41,8 +41,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.rule=Host(`${COMPOSE_DOMAIN:-webui.local.itkdev.dk}`) && PathPrefix(`/files/`)"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.middlewares=redirect-to-https"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-office-files.rule=Host(`${COMPOSE_SERVER_DOMAIN}`) && PathPrefix(`/files/`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-office-files.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
 
   office-sandbox-runner:
