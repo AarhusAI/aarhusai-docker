@@ -34,9 +34,9 @@ services:
     depends_on:
       - office-sandbox-runner
     environment:
-      API_KEY: ${OFFICE_SERVICE_API_KEY:-office-agent-dev-api-key-0123456789abcdef}
-      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
-      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN:-webui.local.itkdev.dk}}
+      API_KEY: ${OFFICE_SERVICE_API_KEY:-office-tool-dev-api-key-0123456789abcdef}
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-tool-dev-internal-0123456789abcdef}
+      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN_SERVER}}
       SANDBOX_RUNNER_URL: ${OFFICE_SANDBOX_RUNNER_URL:-http://office-sandbox-runner:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
     labels:
@@ -60,9 +60,9 @@ services:
       office-sandbox:
         condition: service_completed_successfully
     group_add:
-      - "${DOCKER_GID:-999}"
+      - "${OFFICE_DOCKER_GID:-999}"
     environment:
-      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-tool-dev-internal-0123456789abcdef}
       SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runc}
       SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
       SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
@@ -86,5 +86,5 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-tool-dev-internal-0123456789abcdef}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
