@@ -415,8 +415,6 @@ services:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?}
     networks:
       - app
-    ports:
-      - "3900"
     healthcheck:
       test: [ "CMD", "/garage", "status" ]
       interval: 10s

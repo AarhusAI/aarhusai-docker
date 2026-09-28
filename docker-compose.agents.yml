@@ -1,6 +1,3 @@
-include:
-  - docker-compose.office.yml
-
 networks:
   frontend:
     external: true
