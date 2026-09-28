@@ -1,0 +1,89 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+  office-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  office-egress:
+
+services:
+  office-sandbox:
+    # Only here to download the image at start up and docker compose pull.
+    image: ghcr.io/aarhusai/office-sandbox:${OFFICE_SANDBOX_VERSION:-latest}
+    restart: "no"
+    network_mode: none
+
+  office-mcp:
+    image: ghcr.io/aarhusai/office-mcp:${OFFICE_MCP_VERSION:-latest}
+    networks:
+      - app
+      - frontend
+      - office-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - office-sandbox-runner
+    environment:
+      API_KEY: ${OFFICE_SERVICE_API_KEY:-office-agent-dev-api-key-0123456789abcdef}
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN:-webui.local.itkdev.dk}}
+      SANDBOX_RUNNER_URL: ${OFFICE_SANDBOX_RUNNER_URL:-http://office-sandbox-runner:8000}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.rule=Host(`${COMPOSE_DOMAIN:-webui.local.itkdev.dk}`) && PathPrefix(`/files/`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openwebui}-office-files.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+  office-sandbox-runner:
+    image: ghcr.io/aarhusai/office-sandbox-runner:${OFFICE_SANDBOX_RUNNER_VERSION:-latest}
+    networks:
+      - office-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      office-sandbox:
+        condition: service_completed_successfully
+    group_add:
+      - "${DOCKER_GID:-999}"
+    environment:
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runc}
+      SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
+      SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - office-egress:/egress
+
+  soffice-svc:
+    image: ghcr.io/aarhusai/soffice-svc:${OFFICE_SVC_VERSION:-latest}
+    runtime: ${SANDBOX_RUNTIME:-runc}
+    mem_limit: ${SOFFICE_MEM_LIMIT:-1g}
+    pids_limit: ${SOFFICE_PIDS_LIMIT:-512}
+    restart: unless-stopped
+    networks:
+      - office-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-agent-dev-internal-0123456789abcdef}
+      LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
