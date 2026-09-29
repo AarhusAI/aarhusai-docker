@@ -39,7 +39,7 @@ vars:
       branch: 'develop'
       path: 'agents/retsinformation-api-agent'
     - name: 'Office agent (build docs,xls and ppt)'
-      url: 'https://github.com/AarhusAI/office-agent.git'
+      url: 'https://github.com/AarhusAI/office-tool.git'
       branch: 'develop'
       path: 'agents/office-agent'
     - name: 'EU funding portal agent'
