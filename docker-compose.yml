@@ -13,7 +13,7 @@ services:
       args:
         USE_CUDA: false
         USE_OLLAMA: false
-        USE_SLIM: true
+        USE_SLIM: false
     command: [ "bash", "start.sh"]
     environment:
       # See https://docs.openwebui.com/getting-started/env-configuration/

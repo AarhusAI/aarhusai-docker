@@ -10,9 +10,9 @@ vars:
   OPEN_WEBUI_REPO: 'https://github.com/AarhusAI/open-webui.git'
 
   # Versions
-  OPEN_WEBUI_PREV_VERSION: 'v0.11.2'
-  OPEN_WEBUI_VERSION: 'v0.11.3'
-  PROD_OPEN_WEBUI_VERSION: 'v0.11.3-4'
+  OPEN_WEBUI_PREV_VERSION: 'v0.11.3'
+  OPEN_WEBUI_VERSION: 'v0.11.4'
+  PROD_OPEN_WEBUI_VERSION: 'v0.11.4-1'
   TARGET_DIR: 'open-webui'
 
   RAG:
@@ -96,7 +96,7 @@ vars:
     - name: 'Expose file metadata URL in citation modal'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/44.diff'
       branch: 'feature/citation-modal-url'
-    # Tidy feebback support
+    # Tidy feedback support
     - name: 'Added tidy feedback to pages behind login'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/57.diff'
       branch: 'feature/feedback-tool'
@@ -456,7 +456,7 @@ tasks:
           else
             echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
           fi
-      - git checkout upstream/{{ .OPEN_WEBUI_VERSION }}
+      - git checkout {{ .OPEN_WEBUI_VERSION }}
     silent: true
 
   patches:reset:
@@ -481,7 +481,7 @@ tasks:
           else
             echo "No branch specified for this '{{ .ITEM.name }}', skipping rebase"
           fi
-      - git checkout upstream/{{ .OPEN_WEBUI_VERSION }}
+      - git checkout {{ .OPEN_WEBUI_VERSION }}
     silent: true
 
   patches:force:
