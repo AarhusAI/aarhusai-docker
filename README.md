@@ -246,7 +246,6 @@ Agent MCP tool servers are cloned into `agents/*` (`task agents:clone`, from the
 ```bash
 task compose -- -f docker-compose.agents.yml up --detach
 ```
-
 The overlay overrides `openwebui.TOOL_SERVER_CONNECTIONS` to register `search-agent` (websearch, no auth),
 `eventdatabase-agent`, `retsinformation-agent` and `eu-funding-agent` (bearer-auth, keys from `*_SERVICE_API_KEY`). The
 `office-tool` repo is in the `AGENTS` clone list but has no compose service. RAG services (`retrieval`, `ingestion`)
@@ -263,16 +262,16 @@ production uses Azure B2C. The former `docker-compose.oidc.yml` mock identity pr
 
 ## Production builds
 
+
 Production images build the `openwebui` service from `docker-compose.yml`
 (`COMPOSE_BAKE=true docker compose --file docker-compose.yml build --no-cache --pull openwebui`), then tag and push at
 `PROD_OPEN_WEBUI_VERSION` and `latest`. Each build first runs `prod:prepare` (git reset → apply patch set → bump npmrc):
 
-| Task                  | Image                      | Patch set                      |
-|-----------------------|----------------------------|--------------------------------|
-| `prod:build:aarhusai` | `itkdev/openwebui`         | `patch:aarhus` (base + Aarhus) |
-| `prod:build:os2ai`    | `ghcr.io/os2ai/open-webui` | `patch:os2ai` (base + OS2)     |
+```bash
+task prod:build
+```
 
-The server stack (`docker-compose.server.yml`) consumes `itkdev/openwebui:${OPENWEBUI_VERSION:-latest}`.
+The server stack (`docker-compose.server.yml`) consumes `ghcr.io/aarhusai/open-webui:${OPENWEBUI_VERSION:-latest}`.
 
 Images build for the host architecture. To build for another platform, set `DOCKER_DEFAULT_PLATFORM`, e.g.
 `DOCKER_DEFAULT_PLATFORM=linux/amd64 task prod:build:aarhusai` on an arm64 host.

@@ -7,7 +7,7 @@ networks:
 
 services:
   openwebui:
-    image: itkdev/openwebui:${OPENWEBUI_VERSION:-latest}
+    image: ghcr.io/aarhusai/open-webui:${OPENWEBUI_VERSION:-latest}
     restart: unless-stopped
     environment:
       # See https://docs.openwebui.com/getting-started/env-configuration/

@@ -1,0 +1,115 @@
+diff --git a/backend/open_webui/utils/middleware.py b/backend/open_webui/utils/middleware.py
+index 82346043b48e..d32b6cc9a1b8 100644
+--- a/backend/open_webui/utils/middleware.py
++++ b/backend/open_webui/utils/middleware.py
+@@ -433,6 +433,14 @@ def get_citation_source_from_tool_result(
+         if isinstance(tool_result, dict) and 'error' in tool_result:
+             return []
+ 
++        # Unwrap {'results': [...]} wrapper added by process_tool_result for MCP tools
++        if (
++            isinstance(tool_result, dict)
++            and 'results' in tool_result
++            and isinstance(tool_result['results'], list)
++        ):
++            tool_result = tool_result['results']
++
+         if tool_name in ('view_knowledge_file', 'view_file'):
+             if not isinstance(tool_result, dict):
+                 return []
+@@ -1513,24 +1521,43 @@ async def tool_call_handler(tool_call):
+                     tool = tools[tool_function_name]
+                     tool_id = tool.get('tool_id', '')
+ 
+-                    tool_name = f'{tool_id}/{tool_function_name}' if tool_id else f'{tool_function_name}'
++                    # Use original (un-prefixed) name for MCP tools so that
++                    # e.g. "websearch_fetch_url" matches the "fetch_url" handler.
++                    citation_tool_name = tool.get('original_name', tool_function_name)
+ 
+-                    # Citation is enabled for this tool
+-                    sources.append(
+-                        {
+-                            'source': {
+-                                'name': (f'{tool_name}'),
+-                            },
+-                            'document': [str(tool_result)],
+-                            'metadata': [
+-                                {
+-                                    'source': (f'{tool_name}'),
+-                                    'parameters': tool_function_params,
+-                                }
+-                            ],
+-                            'tool_result': True,
+-                        }
+-                    )
++                    if citation_tool_name in [
++                        'fetch_url',
++                        'view_file',
++                        'view_knowledge_file',
++                        'query_knowledge_files',
++                    ]:
++                        try:
++                            citation_sources = get_citation_source_from_tool_result(
++                                tool_name=citation_tool_name,
++                                tool_params=tool_function_params,
++                                tool_result=tool_result,
++                                tool_id=tool_id,
++                            )
++                            sources.extend(citation_sources)
++                        except Exception as e:
++                            log.exception(f'Error extracting citation source: {e}')
++                    else:
++                        tool_name = f'{tool_id}/{tool_function_name}' if tool_id else f'{tool_function_name}'
++                        sources.append(
++                            {
++                                'source': {
++                                    'name': (f'{tool_name}'),
++                                },
++                                'document': [str(tool_result)],
++                                'metadata': [
++                                    {
++                                        'source': (f'{tool_name}'),
++                                        'parameters': tool_function_params,
++                                    }
++                                ],
++                                'tool_result': True,
++                            }
++                        )
+ 
+                     if tools[tool_function_name].get('metadata', {}).get('file_handler', False):
+                         skip_files = True
+@@ -3001,6 +3028,7 @@ async def tool_function(**kwargs):
+                                 'type': 'mcp',
+                                 'client': client,
+                                 'direct': False,
++                                'original_name': tool_spec['name'],
+                             }
+                     except Exception as e:
+                         log.debug(e)
+@@ -6087,9 +6115,16 @@ async def execute_tool_call(tool_call):
+                         )
+ 
+                         # Extract citation sources from tool results
++                        # Use original (un-prefixed) name for MCP tools so that
++                        # e.g. "websearch_fetch_url" matches the "fetch_url" handler.
++                        citation_tool_name = (
++                            tool.get('original_name', tool_function_name)
++                            if tool
++                            else tool_function_name
++                        )
+                         if (
+                             citations_enabled
+-                            and tool_function_name
++                            and citation_tool_name
+                             in [
+                                 'fetch_url',
+                                 'view_file',
+@@ -6101,7 +6136,7 @@ async def execute_tool_call(tool_call):
+                         ):
+                             try:
+                                 citation_sources = get_citation_source_from_tool_result(
+-                                    tool_name=tool_function_name,
++                                    tool_name=citation_tool_name,
+                                     tool_params=tool_function_params,
+                                     tool_result=tool_result,
+                                     tool_id=tool.get('tool_id', '') if tool else '',

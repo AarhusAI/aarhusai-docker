@@ -69,11 +69,6 @@ vars:
       url: 'https://patch-diff.githubusercontent.com/raw/os2ai/open-webui/pull/6.diff'
       branch: 'patch/rag-query-template'
 
-  PATCHES_OS2:
-    - name: 'Add ability to turn off prompt suggestions displaying at all'
-      url: 'https://patch-diff.githubusercontent.com/raw/os2ai/open-webui/pull/7.diff'
-      branch: 'patch/add-enable-prompt-suggestions'
-
   PATCHES_AARHUS:
     # OIDC
     - name: 'OIDC aak roles and groups'
@@ -230,7 +225,7 @@ tasks:
           curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
     silent: false
 
-  patch:aarhus:
+  patch:apply:
     desc: "Patch open-webui with base and AarhusAI patches"
     dir: "{{ .TARGET_DIR }}"
     cmds:
@@ -240,18 +235,8 @@ tasks:
           curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
     silent: false
 
-  patch:os2ai:
-    desc: "Patch open-webui with base and OS2ai patches"
-    dir: "{{ .TARGET_DIR }}"
-    cmds:
-      - task: patch:base
-      - for: { var: PATCHES_OS2 }
-        cmd: |
-          curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
-    silent: false
-
   patches:download:
-    desc: "Download all patch diffs to patches/{{ .OPEN_WEBUI_VERSION }}/{base,aarhus,os2}/, named after the patch name"
+    desc: "Download all patch diffs to patches/{{ .OPEN_WEBUI_VERSION }}/{base,aarhus}/, named after the patch name"
     vars:
       PATCHES_DIR: 'patches/{{ .OPEN_WEBUI_VERSION }}'
     cmds:
@@ -267,13 +252,7 @@ tasks:
           PATCH_DIR: '{{ .PATCHES_DIR }}/aarhus'
           PATCH_NAME: '{{ .ITEM.name }}'
           PATCH_URL: '{{ .ITEM.url }}'
-      - for: { var: PATCHES_OS2 }
-        task: patches:download:one
-        vars:
-          PATCH_DIR: '{{ .PATCHES_DIR }}/os2'
-          PATCH_NAME: '{{ .ITEM.name }}'
-          PATCH_URL: '{{ .ITEM.url }}'
-      - echo "Downloaded patches to {{ .PATCHES_DIR }}/{base,aarhus,os2}/"
+      - echo "Downloaded patches to {{ .PATCHES_DIR }}/{base,aarhus}/"
     silent: true
 
   patches:download:one:
@@ -517,12 +496,11 @@ tasks:
       - task: '{{ .PATCH_TASK }}'
       - task: wui:npmrc
 
-  prod:build:shared:
+  prod:build:
     desc: "Build and push docker image with custom registry and image name"
-    internal: true
     vars:
-      IMAGE_NAME: '{{ .IMAGE_NAME }}'
-      PATCH_TASK: '{{ .PATCH_TASK | default "patch:base" }}'
+      IMAGE_NAME: ghcr.io/aarhusai/open-webui
+      PATCH_TASK: patch:apply
     cmds:
       - |
         echo "You are about to build and push production images:"
@@ -543,19 +521,3 @@ tasks:
       - docker push {{ .IMAGE_NAME }}:{{.PROD_OPEN_WEBUI_VERSION}}
       - docker push {{ .IMAGE_NAME }}:latest
     silent: true
-
-  prod:build:aarhusai:
-    desc: Build docker image and push to docker hub (with PATCHES_AARHUS)
-    cmds:
-      - task: prod:build:shared
-        vars:
-          IMAGE_NAME: itkdev/openwebui
-          PATCH_TASK: patch:aarhus
-
-  prod:build:os2ai:
-    desc: Build docker image and push to OS2ai
-    cmds:
-      - task: prod:build:shared
-        vars:
-          IMAGE_NAME: ghcr.io/os2ai/open-webui
-          PATCH_TASK: patch:os2ai
