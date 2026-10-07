@@ -39,6 +39,10 @@ services:
       PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN_SERVER}}
       SANDBOX_RUNNER_URL: ${OFFICE_SANDBOX_RUNNER_URL:-http://office-sandbox-runner:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+      SANDBOX_KEY_HEADERS: ${OFFICE_SANDBOX_KEY_HEADERS:-X-OpenWebUI-User-Id,X-OpenWebUI-Chat-Id}
+      OPENWEBUI_URL: ${OFFICE_OPENWEBUI_URL:-http://openwebui:8080}
+      OPENWEBUI_API_KEY: ${OFFICE_OPENWEBUI_API_KEY:-}
+      MAX_IMPORT_BYTES: ${OFFICE_MAX_IMPORT_BYTES:-20000000}
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -67,6 +71,8 @@ services:
       SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
       SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
+      # Absolute path on the Docker *host* (the runner shells out to the host daemon); empty disables /templates.
+      SANDBOX_TEMPLATES_DIR: ${OFFICE_TEMPLATES_DIR:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - office-egress:/egress

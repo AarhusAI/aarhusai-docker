@@ -98,7 +98,7 @@ services:
             "spec": "",
             "path": "openapi.json",
             "auth_type": "bearer",
-            "key": "${OFFICE_SERVICE_API_KEY:-office-agent-dev-api-key-0123456789abcdef}",
+            "key": "${OFFICE_SERVICE_API_KEY:-office-tool-dev-api-key-0123456789abcdef}",
             "headers": { "X-Sandbox-Key": "{{CHAT_ID}}" },
             "config": {
               "enable": ${OFFICE_TOOLS:-false},
