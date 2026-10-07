@@ -36,7 +36,7 @@ services:
     environment:
       API_KEY: ${OFFICE_SERVICE_API_KEY:-office-tool-dev-api-key-0123456789abcdef}
       INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-tool-dev-internal-0123456789abcdef}
-      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_DOMAIN_SERVER}}
+      PUBLIC_BASE_URL: ${OFFICE_PUBLIC_BASE_URL:-https://${COMPOSE_SERVER_DOMAIN}}
       SANDBOX_RUNNER_URL: ${OFFICE_SANDBOX_RUNNER_URL:-http://office-sandbox-runner:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
       SANDBOX_KEY_HEADERS: ${OFFICE_SANDBOX_KEY_HEADERS:-X-OpenWebUI-User-Id,X-OpenWebUI-Chat-Id}
