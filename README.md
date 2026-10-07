@@ -248,9 +248,9 @@ task compose -- -f docker-compose.agents.yml up --detach
 ```
 The overlay overrides `openwebui.TOOL_SERVER_CONNECTIONS` to register `search-agent` (websearch, no auth),
 `eventdatabase-agent`, `retsinformation-agent` and `eu-funding-agent` (bearer-auth, keys from `*_SERVICE_API_KEY`). The
-`office-tool` runs via `docker-compose.office.yml` (included by the agents overlay), built and started only under
-`COMPOSE_PROFILES=office`, and registered with Open WebUI when `OFFICE_TOOLS=true`. RAG services (`retrieval`, `ingestion`)
-are part of the base/server stacks, not this overlay.
+`office-tool` runs via `docker-compose.office.yml` (pass it explicitly with `-f`; see
+[`docs/office-tool.md`](docs/office-tool.md)), and is registered with Open WebUI when `OFFICE_TOOLS=true`. RAG services
+(`retrieval`, `ingestion`) are part of the base/server stacks, not this overlay.
 
 ### OAuth / OIDC
 

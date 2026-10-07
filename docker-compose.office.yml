@@ -82,7 +82,7 @@ services:
       - "${DOCKER_GID:-999}"
     environment:
       INTERNAL_TOKEN: ${OFFICE_INTERNAL_TOKEN:-office-tool-dev-internal-0123456789abcdef}
-      SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runc}
+      SANDBOX_RUNTIME: ${SANDBOX_RUNTIME:-runsc}
       SANDBOX_IMAGE: ${OFFICE_SANDBOX_IMAGE:-office-sandbox:dev}
       SOFFICE_SVC_URL: ${OFFICE_SOFFICE_SVC_URL:-http://soffice-svc:8000}
       LOG_LEVEL: ${OFFICE_LOG_LEVEL:-INFO}
@@ -99,7 +99,7 @@ services:
       context: ./agents/office-tool/soffice-svc
       target: ${TARGET:-dev}
     command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-    runtime: ${SANDBOX_RUNTIME:-runc}
+    runtime: ${SANDBOX_RUNTIME:-runsc}
     mem_limit: ${SOFFICE_MEM_LIMIT:-1g}
     pids_limit: ${SOFFICE_PIDS_LIMIT:-512}
     restart: unless-stopped
