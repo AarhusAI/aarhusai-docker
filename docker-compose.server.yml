@@ -25,6 +25,8 @@ services:
       ENABLE_PERSISTENT_CONFIG: ${ENABLE_PERSISTENT_CONFIG:-false}
       ENABLE_PUBLIC_ACTIVE_USERS_COUNT: ${ENABLE_PUBLIC_ACTIVE_USERS_COUNT:-false}
       ENABLE_USER_STATUS: ${ENABLE_USER_STATUS:-false}
+      # Forward X-OpenWebUI-User-Id/Chat-Id to tool servers (office-tool import_file needs it).
+      ENABLE_FORWARD_USER_INFO_HEADERS: ${ENABLE_FORWARD_USER_INFO_HEADERS:-false}
       DEFAULT_GROUP_SHARE_PERMISSION: ${DEFAULT_GROUP_SHARE_PERMISSION:-members}
       # Admin user setup
       WEBUI_ADMIN_NAME: "admin"
@@ -415,8 +417,6 @@ services:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?}
     networks:
       - app
-    ports:
-      - "3900"
     healthcheck:
       test: [ "CMD", "/garage", "status" ]
       interval: 10s
