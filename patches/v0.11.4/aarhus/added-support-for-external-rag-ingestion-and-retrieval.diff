@@ -822,7 +822,7 @@ index c36b0b8a53b5..0bd91c312947 100644
                      if result:
                          # Fresh session for the final update.
 diff --git a/backend/open_webui/tools/builtin.py b/backend/open_webui/tools/builtin.py
-index d80884d1cdd4..434aef361349 100644
+index d80884d1cdd4..116c1f72249b 100644
 --- a/backend/open_webui/tools/builtin.py
 +++ b/backend/open_webui/tools/builtin.py
 @@ -29,6 +29,15 @@
@@ -906,7 +906,7 @@ index d80884d1cdd4..434aef361349 100644
 +                    collection_names=collection_names,
 +                    k=count,
 +                    timeout=external_rag_config.RAG_EXTERNAL_RETRIEVAL_TIMEOUT,
-+                    user=__user__,
++                    user=user_model,
 +                    messages=messages_for_external,
 +                )
 +            else:
