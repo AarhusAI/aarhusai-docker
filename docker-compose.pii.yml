@@ -6,6 +6,21 @@ networks:
     internal: false
 
 services:
+  owui-provision:
+    image: python:3.12-slim
+    command: "python /functions/provision.py"
+    restart: no
+    networks:
+      - app
+    depends_on: 
+      - openwebui
+    environment:
+      OWUI_URL: http://openwebui:8080
+      OWUI_EMAIL: ${WEBUI_ADMIN_EMAIL:?}
+      OWUI_PASSWORD: ${WEBUI_ADMIN_PASSWORD:?}
+    volumes:
+      - ./functions:/functions:ro
+
   presidio-analyzer:
     image: ghcr.io/data-privacy-stack/presidio-analyzer:latest
     networks:
