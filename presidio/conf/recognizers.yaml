@@ -1,0 +1,63 @@
+supported_languages:
+  - en
+  - da
+global_regex_flags: 26
+
+recognizers:
+  - name: CreditCardRecognizer
+    type: predefined
+  - name: CryptoRecognizer
+    type: predefined
+  - name: DateRecognizer
+    type: predefined
+  - name: EmailRecognizer
+    type: predefined
+  - name: IbanRecognizer
+    type: predefined
+  - name: IpRecognizer
+    type: predefined
+  - name: MacAddressRecognizer
+    type: predefined
+  - name: UrlRecognizer
+    type: predefined
+
+  # ponytail: regex date check only (DDMMYY + 4 digits); no modulus-11 (dropped by CPR in 2007) and no Feb-30 check.
+  - name: DkCprRecognizer
+    type: custom
+    supported_entity: DK_CPR
+    supported_languages:
+      - language: da
+        context: [cpr, cprnr, personnummer]
+      - language: en
+        context: [cpr, cprnr, personal number]
+    patterns:
+      - name: cpr
+        regex: '\b(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])\d{2}-?\d{4}\b'
+        score: 0.5
+
+  # Replaces predefined PhoneRecognizer: YAML can't set its supported_regions, and its defaults miss DK numbers.
+  - name: DkPhoneRecognizer
+    type: custom
+    supported_entity: PHONE_NUMBER
+    supported_languages:
+      - language: da
+        context: [telefon, tlf, telefonnummer, mobil, mobilnummer, ring, ringe, sms]
+      - language: en
+        context: [phone, telephone, mobile, cell, call]
+    patterns:
+      - name: international
+        regex: '(?<!\w)\+\d{1,3}(?:[\s-]?\d){6,12}\b'
+        score: 0.6
+      - name: dk_local
+        regex: '\b[2-9]\d(?:\s?\d{2}){3}\b'
+        score: 0.4
+
+  # ponytail: street-suffix heuristic; misses addresses without a known suffix. Use a DAWA lookup if recall matters.
+  - name: DkAddressRecognizer
+    type: custom
+    supported_entity: DK_ADDRESS
+    supported_languages: [da, en]
+    patterns:
+      - name: street
+        regex: '\b[\wæøå.-]+(?:\s(?:vej|allé|boulevard)|(?:vej|gade|allé|plads|pladsen|stræde|boulevard|vænget|vænge|torv|torvet|parken|bakken|kajen))\s\d{1,4}[a-z]?\b'
+        score: 0.6

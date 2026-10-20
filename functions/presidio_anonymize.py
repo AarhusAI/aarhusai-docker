@@ -2,15 +2,21 @@
 title: Presidio PII Filter (REST)
 """
 
+import asyncio
+import logging
+
 import aiohttp
 from pydantic import BaseModel
+
+log = logging.getLogger(__name__)
+UNAVAILABLE = "PII check unavailable, try again later."
 
 
 class Filter:
     class Valves(BaseModel):
         analyzer_url: str = "http://presidio-analyzer:3000"
         anonymizer_url: str = "http://presidio-anonymizer:3000"
-        language: str = "en"
+        language: str = "da"
         score_threshold: float = 0.4
         target_models: str = "*"  # comma-separated model IDs, or *
 
@@ -43,15 +49,19 @@ class Filter:
             return body
 
         timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            for msg in body.get("messages", []):
-                if msg.get("role") != "user":
-                    continue
-                content = msg.get("content")
-                if isinstance(content, str):
-                    msg["content"] = await self._scrub(session, content)
-                elif isinstance(content, list):  # multimodal messages
-                    for part in content:
-                        if part.get("type") == "text":
-                            part["text"] = await self._scrub(session, part["text"])
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                for msg in body.get("messages", []):
+                    if msg.get("role") != "user":
+                        continue
+                    content = msg.get("content")
+                    if isinstance(content, str):
+                        msg["content"] = await self._scrub(session, content)
+                    elif isinstance(content, list):  # multimodal messages
+                        for part in content:
+                            if part.get("type") == "text":
+                                part["text"] = await self._scrub(session, part["text"])
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            log.exception("Presidio request failed")
+            raise Exception(UNAVAILABLE) from e
         return body

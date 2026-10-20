@@ -1,0 +1,5 @@
+# aioresponses 0.7.9 can't build responses on aiohttp 3.14 (ClientResponse needs stream_writer)
+aiohttp<3.14
+pydantic
+pytest
+aioresponses

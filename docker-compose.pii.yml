@@ -22,7 +22,7 @@ services:
       - ./functions:/functions:ro
 
   presidio-analyzer:
-    image: ghcr.io/data-privacy-stack/presidio-analyzer:latest
+    build: ./presidio
     networks:
       - app
 
