@@ -22,7 +22,8 @@ services:
       - ./functions:/functions:ro
 
   presidio-analyzer:
-    build: ./presidio
+    # We build own image for better support for danish data formats.
+    build: ./.docker/presidio
     networks:
       - app
 
