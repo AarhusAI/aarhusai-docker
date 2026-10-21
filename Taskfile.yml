@@ -108,6 +108,14 @@ tasks:
     cmds:
       - '{{ .DOCKER_COMPOSE }} {{ .CLI_ARGS }}'
 
+  pii:tests:
+    desc: "Run PII filter tests (unit + Danish detection) against the running Presidio analyzer"
+    cmds:
+      - >-
+        {{ .DOCKER_COMPOSE }} -f docker-compose.yml -f docker-compose.pii.yml run --rm --no-deps
+        -e PRESIDIO_ANALYZER_URL=http://presidio-analyzer:3000 owui-provision
+        sh -c "pip install -q -r /functions/tests/requirements.txt && pytest -p no:cacheprovider /functions/tests {{ .CLI_ARGS }}"
+
   ####
   ## Agents helpers
   ####

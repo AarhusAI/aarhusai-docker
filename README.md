@@ -252,6 +252,25 @@ The overlay overrides `openwebui.TOOL_SERVER_CONNECTIONS` to register `search-ag
 [`docs/office-tool.md`](docs/office-tool.md)), and is registered with Open WebUI when `OFFICE_TOOLS=true`. RAG services
 (`retrieval`, `ingestion`) are part of the base/server stacks, not this overlay.
 
+### PII filters
+
+The `docker-compose.pii.yml` overlay runs the Presidio analyzer/anonymizer and provisions the Open WebUI filters in
+`functions/`: `docker compose -f docker-compose.yml -f docker-compose.pii.yml up --detach`.
+
+By default the guard blocks CPR, e-mail, phone, IBAN and credit card numbers; the anonymizer redacts those plus names
+and Danish addresses. Its `allow_list` valve keeps public names/places (exact match, so it also spares namesakes).
+
+```bash
+# unit tests (mocked Presidio), from repo root
+pip install -r functions/tests/requirements.txt
+pytest functions/tests
+
+# Danish detection tests against the real analyzer (stack with the PII overlay running)
+task pii:tests
+```
+
+Detection tests skip unless `PRESIDIO_ANALYZER_URL` is set; rerun them whenever the Presidio image changes.
+
 ### OAuth / OIDC
 
 Open WebUI authenticates against an external OIDC provider (Azure B2C) via the `OAUTH_*` / `OPENID_PROVIDER_URL`

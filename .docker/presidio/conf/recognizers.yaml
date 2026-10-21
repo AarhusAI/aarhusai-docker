@@ -32,7 +32,7 @@ recognizers:
         context: [cpr, cprnr, personal number]
     patterns:
       - name: cpr
-        regex: '\b(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])\d{2}-?\d{4}\b'
+        regex: '\b(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])\d{2}[-\s]?\d{4}\b'
         score: 0.5
 
   # Replaces predefined PhoneRecognizer: YAML can't set its supported_regions, and its defaults miss DK numbers.
@@ -41,7 +41,7 @@ recognizers:
     supported_entity: PHONE_NUMBER
     supported_languages:
       - language: da
-        context: [telefon, tlf, telefonnummer, mobil, mobilnummer, ring, ringe, sms]
+        context: [telefon, tlf, telefonnummer, mobil, mobilnummer, sms]
       - language: en
         context: [phone, telephone, mobile, cell, call]
     patterns:
@@ -50,7 +50,10 @@ recognizers:
         score: 0.6
       - name: dk_local
         regex: '\b[2-9]\d(?:\s?\d{2}){3}\b'
-        score: 0.4
+        score: 0.3 # only counts as a phone number when a context word is nearby
+      - name: dk_prefixed
+        regex: '\(?(?:\+|\b00)45\)?[\s-]?[2-9]\d(?:[\s-]?\d){6}\b'
+        score: 0.7
 
   # ponytail: street-suffix heuristic; misses addresses without a known suffix. Use a DAWA lookup if recall matters.
   - name: DkAddressRecognizer

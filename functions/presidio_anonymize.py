@@ -18,19 +18,33 @@ class Filter:
         anonymizer_url: str = "http://presidio-anonymizer:3000"
         language: str = "da"
         score_threshold: float = 0.4
+        # comma-separated Presidio entity types to redact, or * for all
+        entities: str = "PERSON,DK_ADDRESS,DK_CPR,EMAIL_ADDRESS,PHONE_NUMBER,IBAN_CODE,CREDIT_CARD"
+        # comma-separated exact strings never redacted (e.g. public names/places); exact match also spares namesakes
+        allow_list: str = ""
         target_models: str = "*"  # comma-separated model IDs, or *
 
     def __init__(self):
         self.valves = self.Valves()
 
+    def _payload(self, text: str) -> dict:
+        payload = {
+            "text": text,
+            "language": self.valves.language,
+            "score_threshold": self.valves.score_threshold,
+        }
+        if self.valves.entities.strip() != "*":
+            payload["entities"] = [
+                e.strip() for e in self.valves.entities.split(",") if e.strip()
+            ]
+        allow = [a.strip() for a in self.valves.allow_list.split(",") if a.strip()]
+        if allow:
+            payload["allow_list"] = allow
+        return payload
+
     async def _scrub(self, session: aiohttp.ClientSession, text: str) -> str:
         async with session.post(
-            f"{self.valves.analyzer_url}/analyze",
-            json={
-                "text": text,
-                "language": self.valves.language,
-                "score_threshold": self.valves.score_threshold,
-            },
+            f"{self.valves.analyzer_url}/analyze", json=self._payload(text)
         ) as r:
             r.raise_for_status()
             results = await r.json()

@@ -18,13 +18,23 @@ class Filter:
         language: str = "da"
         score_threshold: float = 0.5
         # comma-separated Presidio entity types to block, or * for all
-        blocked_entities: str = (
-            "PERSON,EMAIL_ADDRESS,PHONE_NUMBER,CREDIT_CARD,IBAN_CODE,DK_CPR,DK_ADDRESS"
-        )
+        blocked_entities: str = "EMAIL_ADDRESS,PHONE_NUMBER,CREDIT_CARD,IBAN_CODE,DK_CPR"
         target_models: str = "*"
 
     def __init__(self):
         self.valves = self.Valves()
+
+    def _payload(self, text: str) -> dict:
+        payload = {
+            "text": text,
+            "language": self.valves.language,
+            "score_threshold": self.valves.score_threshold,
+        }
+        if self.valves.blocked_entities.strip() != "*":
+            payload["entities"] = [
+                e.strip() for e in self.valves.blocked_entities.split(",") if e.strip()
+            ]
+        return payload
 
     async def inlet(self, body: dict, __user__: dict = None) -> dict:
         targets = [m.strip() for m in self.valves.target_models.split(",")]
@@ -46,15 +56,7 @@ class Filter:
         if not text.strip():
             return body
 
-        payload = {
-            "text": text,
-            "language": self.valves.language,
-            "score_threshold": self.valves.score_threshold,
-        }
-        if self.valves.blocked_entities.strip() != "*":
-            payload["entities"] = [
-                e.strip() for e in self.valves.blocked_entities.split(",") if e.strip()
-            ]
+        payload = self._payload(text)
 
         try:
             async with aiohttp.ClientSession(
