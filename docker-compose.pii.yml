@@ -1,0 +1,33 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  owui-provision:
+    image: python:3.12-slim
+    command: "python /functions/provision.py"
+    restart: no
+    networks:
+      - app
+    depends_on: 
+      - openwebui
+    environment:
+      OWUI_URL: http://openwebui:8080
+      OWUI_EMAIL: ${WEBUI_ADMIN_EMAIL:?}
+      OWUI_PASSWORD: ${WEBUI_ADMIN_PASSWORD:?}
+    volumes:
+      - ./functions:/functions:ro
+
+  presidio-analyzer:
+    # We build own image for better support for danish data formats.
+    build: ./.docker/presidio
+    networks:
+      - app
+
+  presidio-anonymizer:
+    image: ghcr.io/data-privacy-stack/presidio-anonymizer:latest
+    networks:
+      - app
