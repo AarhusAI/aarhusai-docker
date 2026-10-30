@@ -353,7 +353,7 @@ tasks:
     vars:
       DUMP_FILE: '{{ .CLI_ARGS | default "dump.sql" }}'
     cmds:
-      - 'task compose -- exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" --clean --if-exists -d postgres > {{ .DUMP_FILE }}'
+      - 'task compose -- exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" --clean --if-exists --no-owner --no-privileges -d postgres > {{ .DUMP_FILE }}'
       - echo "Dumped Open WebUI database to {{ .DUMP_FILE }}"
     silent: true
 
@@ -372,7 +372,7 @@ tasks:
           exit 1
         fi
       - 'task compose -- exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
-      - 'task compose -- exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
+      - '{{ .DOCKER_COMPOSE }} exec -T postgres psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d postgres < {{ .DUMP_FILE }}'
       - echo "Imported {{ .DUMP_FILE }} into the Open WebUI database"
     silent: true
 
