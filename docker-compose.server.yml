@@ -471,6 +471,11 @@ services:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-123456789}
     volumes:
       - ./.docker/data/qdrant:/qdrant/storage:rw
+    pre_start:
+      # Bind-mounted dir is created root-owned; the unprivileged image runs as 1000:1000.
+      - image: qdrant/qdrant:v1.17-unprivileged
+        user: root
+        command: ["chown", "-R", "1000:1000", "/qdrant/storage"]
 
   searxng:
     image: ghcr.io/searxng/searxng:${SEARXNG_TAG:-2026.3.13-3c1f68c59}
