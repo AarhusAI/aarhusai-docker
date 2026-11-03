@@ -638,12 +638,12 @@ services:
       DEBUG: ${INGESTION_DEBUG:-false}
       # Per-request upload cap (bytes). Multipart and S3 fetches both honour it.
       MAX_UPLOAD_BYTES: ${INGESTION_MAX_UPLOAD_BYTES:-104857600}
+      INGEST_MAX_CONCURRENCY: ${INGESTION_MAX_CONCURRENCY:-4}
       # Logging / observability
       LOG_LEVEL: ${INGESTION_LOG_LEVEL:-INFO}
       LOG_LEVEL_APP: ${INGESTION_LOG_LEVEL_APP:-}
       LOG_FORMAT: ${INGESTION_LOG_FORMAT:-text}
       METRICS_ENABLED: ${INGESTION_METRICS_ENABLED:-true}
-      ENABLE_INSPECTION_API: ${INGESTION_ENABLE_INSPECTION_API:-false}
       # Extraction
       EXTRACTION_ENGINE: ${INGESTION_EXTRACTION_ENGINE:-auto}
       KREUZBERG_URL: http://kreuzberg:8000
@@ -686,6 +686,7 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-500}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
       CHUNK_SPLIT_BY: ${INGESTION_CHUNK_SPLIT_BY:-markdown}
+      CHUNK_MIN_SIZE: ${CHUNK_MIN_SIZE:-100}
       TOKENIZER_MODEL: ${INGESTION_TOKENIZER_MODEL:-intfloat/multilingual-e5-large}
       TOKENIZER_REVISION: ${INGESTION_TOKENIZER_REVISION:-3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3}
       # Dense embedder (matches the retrieval agent's config — same endpoint/model/dim).
@@ -726,7 +727,6 @@ services:
       # and is loaded once per `docker compose up` via the pipeline
       # warm-up in init_pipeline().
       ENABLE_SPARSE_EMBEDDINGS: ${INGESTION_ENABLE_SPARSE_EMBEDDINGS:-true}
-      SPARSE_EMBEDDING_PROVIDER: ${INGESTION_SPARSE_EMBEDDING_PROVIDER:-fastembed}
       SPARSE_EMBEDDING_MODEL: ${INGESTION_SPARSE_EMBEDDING_MODEL:-Qdrant/bm42-all-minilm-l6-v2-attentions}
       # Qdrant — fresh collection, separate from Open WebUI's legacy multitenancy collections
       QDRANT_URI: http://qdrant:6333
