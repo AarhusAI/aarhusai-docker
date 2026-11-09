@@ -112,6 +112,7 @@ services:
       OPENAI_API_KEYS: ${OPENAI_API_KEYS:-sk-1234}
       # Model settings
       DEFAULT_MODEL_PARAMS: '{"function_calling": "native"}'
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-'aarhusai-start'}
       # Disable direct connections (do not allow users to connect to new servers)
       ENABLE_DIRECT_CONNECTIONS: ${ENABLE_DIRECT_CONNECTIONS:-false}
       # User profile notification webhooks
