@@ -95,6 +95,10 @@ vars:
     - name: 'Added tidy feedback to pages behind login'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/57.diff'
       branch: 'feature/feedback-tool'
+    # Data deletion
+    - name: 'Added data prune/deletion end-points'
+      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/58.diff'
+      branch: 'feature/data-deletion'
 
 tasks:
   default:
@@ -225,22 +229,50 @@ tasks:
   ## Install and setup (local helpers)
   ####
   patch:base:
-    desc: "Patch open-webui with genral custom patches"
+    desc: "Patch open-webui with genral custom patches (LOCAL_BASE=1 uses downloaded patches/)"
     dir: "{{ .TARGET_DIR }}"
     cmds:
       - for: { var: PATCHES }
-        cmd: |
-          curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
+        task: patch:apply:one
+        vars:
+          PATCH_DIR: '{{ .ROOT_DIR }}/patches/{{ .OPEN_WEBUI_VERSION }}/base'
+          PATCH_NAME: '{{ .ITEM.name }}'
+          PATCH_URL: '{{ .ITEM.url }}'
+          LOCAL: '{{ .LOCAL_BASE }}'
     silent: false
 
   patch:apply:
-    desc: "Patch open-webui with base and AarhusAI patches"
+    desc: "Patch open-webui with base and AarhusAI patches (LOCAL_BASE=1 / LOCAL_AARHUS=1 use downloaded patches/)"
     dir: "{{ .TARGET_DIR }}"
     cmds:
       - task: patch:base
+        vars: { LOCAL_BASE: '{{ .LOCAL_BASE }}' }
       - for: { var: PATCHES_AARHUS }
-        cmd: |
-          curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .ITEM.url }} | git apply --verbose -
+        task: patch:apply:one
+        vars:
+          PATCH_DIR: '{{ .ROOT_DIR }}/patches/{{ .OPEN_WEBUI_VERSION }}/aarhus'
+          PATCH_NAME: '{{ .ITEM.name }}'
+          PATCH_URL: '{{ .ITEM.url }}'
+          LOCAL: '{{ .LOCAL_AARHUS }}'
+    silent: false
+
+  patch:apply:one:
+    desc: "Apply a single patch, from PATCH_URL or (LOCAL set) from the downloaded file in PATCH_DIR"
+    internal: true
+    dir: "{{ .TARGET_DIR }}"
+    cmds:
+      - |
+        if [ -n "{{ .LOCAL }}" ]; then
+          file="{{ .PATCH_DIR }}/$(printf '%s' '{{ .PATCH_NAME }}' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//').diff"
+          if [ ! -f "$file" ]; then
+            echo "Missing $file (run: task patches:download)"
+            exit 1
+          fi
+          echo "Applying '{{ .PATCH_NAME }}' from $file"
+          git apply --verbose "$file"
+        else
+          curl -H 'Cache-Control: no-cache, no-store' -sSL {{ .PATCH_URL }} | git apply --verbose -
+        fi
     silent: false
 
   patches:download:

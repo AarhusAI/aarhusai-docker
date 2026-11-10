@@ -206,11 +206,20 @@ rather than committed into the tree. Each patch is a GitHub PR `.diff` on a fork
 
 ```bash
 task git:reset        # clean checkout at OPEN_WEBUI_VERSION
-task patch:aarhus     # or patch:os2ai / patch:base
+task patch:apply      # base + aarhus (or patch:base for base only)
 ```
 
 Downloaded snapshots for offline reference / review live under `patches/<version>/{base,aarhus,os2}/` (populate with
 `task patches:download`). We download these patches to ensure re-patching older version is possible.
+
+To apply a set from those snapshots instead of fetching it, set a flag per set (unset sets are still fetched with
+`curl`). A missing snapshot file fails the task rather than falling back to `curl`:
+
+```bash
+task patch:apply LOCAL_BASE=1                  # base from patches/, aarhus fetched
+task patch:apply LOCAL_BASE=1 LOCAL_AARHUS=1   # both from patches/
+task patch:base LOCAL_BASE=1
+```
 
 ### Rebasing onto a new upstream release
 
