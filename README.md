@@ -31,6 +31,7 @@ files — it runs on GPU servers and Open WebUI reaches it over the network
 | `eventdatabase-agent`   | agents | Event-database MCP tool server (port 8000)                                                |
 | `retsinformation-agent` | agents | Retsinformation-API MCP tool server (port 8000)                                           |
 | `eu-funding-agent`      | agents | EU Funding & Tenders Portal MCP tool server (port 8000)                                   |
+| `audit-alloy`           | audit  | Grafana Alloy sidecar: converts the Open WebUI audit log to OCSF events                   |
 
 All containers join the internal `app` network; `openwebui` also joins the external `frontend` network (Traefik,
 provided by `itkdev-docker-compose`). Services publish container ports only — there are no fixed host port mappings;
@@ -44,6 +45,8 @@ reach the UI through Traefik at `http://${COMPOSE_DOMAIN}`.
 - **server** — `docker-compose.server.yml`: standalone production stack (prebuilt image, SearXNG). Not layered on base.
 - **agents** — `docker-compose.agents.yml` (dev, builds from `agents/*`) / `docker-compose.server.agents.yml` (prod,
   prebuilt images). Both override `openwebui.TOOL_SERVER_CONNECTIONS` to register the MCP tool servers.
+- **audit** — `docker-compose.audit.yml`: enables the Open WebUI audit file and adds the `audit-alloy` sidecar. Layer
+  it on base or server. See [Audit log as OCSF](#audit-log-as-ocsf).
 
 ```mermaid
 graph TD
@@ -149,6 +152,7 @@ Variables:
 | `GLOBAL_LOG_LEVEL`                                                                    | Open WebUI log level                                                          | `DEBUG`                                                | no                   |
 | `ENABLE_PERSISTENT_CONFIG`                                                            | Persist config in DB vs. env-driven                                           | `false`                                                | no                   |
 | `ENABLE_OTEL` / `ENABLE_OTEL_METRICS`                                                 | OpenTelemetry export toggles                                                  | `false`                                                | no                   |
+| `AUDIT_OCSF_SINK`                                                                     | Audit overlay sink: `file`, or `otlp` (file + `OTEL_EXPORTER_OTLP_ENDPOINT`)  | `file`                                                 | no                   |
 | `WEBUI_ADMIN_EMAIL`                                                                   | Bootstrap admin email                                                         | `noreply@itkdev.dk`                                    | yes                  |
 | `WEBUI_ADMIN_PASSWORD`                                                                | Bootstrap admin password                                                      | `admin`                                                | yes                  |
 | `SEARCH_AGENT_*`                                                                      | Web-search agent: provider, keys, LLM base/key/model, debug flags             | see file (`staan`, `AarhusAI-default-v2`, keys `XXXX`) | for search-agent     |
@@ -279,6 +283,79 @@ task pii:tests
 ```
 
 Detection tests skip unless `PRESIDIO_ANALYZER_URL` is set; rerun them whenever the Presidio image changes.
+
+### Audit log as OCSF
+
+The `docker-compose.audit.yml` overlay enables the Open WebUI audit file and runs a Grafana Alloy sidecar
+(`audit-alloy`). The sidecar converts each audit line to an [OCSF](https://ocsf.io) 1.5.0 event.
+
+```bash
+# dev stack
+docker compose -f docker-compose.yml -f docker-compose.audit.yml up --detach
+
+# server stack
+docker compose -f docker-compose.server.yml -f docker-compose.audit.yml up --detach
+```
+
+#### Data flow
+
+1. Open WebUI writes one JSON object per line to `/app/backend/data/audit.log` (host: `.docker/data/storage/audit.log`).
+2. `audit-alloy` reads the file and maps each line to OCSF (`.docker/alloy/ocsf.alloy`).
+3. A sink module in `.docker/alloy/sinks/` writes the events. `AUDIT_OCSF_SINK` selects the module.
+
+The sidecar keeps its read position in `.docker/data/alloy/`. A restart does not send old lines again. The sidecar
+runs as root, thus this directory is root-owned on the host.
+
+#### OCSF mapping
+
+| Audit line                                      | OCSF class            | Activity                                  |
+|-------------------------------------------------|-----------------------|-------------------------------------------|
+| Route name `signin` or `signup`                 | Authentication (3002) | Logon                                     |
+| Route name `signout`                            | Authentication (3002) | Logoff                                    |
+| All other lines                                 | API Activity (6003)   | Create / Read / Update / Delete / Other   |
+
+- The HTTP verb sets the API activity. A known prefix of the route name (`get_`, `create_`, `update_`, `delete_`, …)
+  overrides the verb.
+- `api.operation` is the route name. It is the HTTP verb when the line has no route name.
+- A response code of 400 or more gives `status: "Failure"`.
+- `actor.user` contains `uid`, `name`, `email_addr` and `type_id` (2 for an admin, 1 for all other users). An
+  anonymous request has only `type_id`.
+- Fields without an OCSF attribute go into `unmapped` (`route`, `request_object`, `response_object`, `extra`,
+  `user_role`).
+
+Open WebUI does not audit OAuth and LDAP logins. With Azure B2C login, the Authentication class thus contains only
+sign-out events.
+
+#### Sinks
+
+| `AUDIT_OCSF_SINK` | Output                                                                                  |
+|-------------------|-----------------------------------------------------------------------------------------|
+| `file` (default)  | `.docker/data/alloy/audit.ocsf.json` (rotation at 100 MB, 10 backups)                   |
+| `otlp`            | The same file, and OTLP gRPC to `OTEL_EXPORTER_OTLP_ENDPOINT` (the central ITK Alloy)   |
+
+The file contains OTLP JSON. Each log record has one OCSF document in `body.stringValue`. Read the events:
+
+```bash
+jq -r '.resourceLogs[].scopeLogs[].logRecords[].body.stringValue' .docker/data/alloy/audit.ocsf.json | jq .
+```
+
+The `otlp` sink has these conditions:
+
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_BASIC_AUTH_USERNAME` and `OTEL_BASIC_AUTH_PASSWORD`. Alloy stops at startup
+  when the credentials are empty.
+- The endpoint must use TLS. gRPC does not send basic auth on a connection with `OTEL_EXPORTER_OTLP_INSECURE=true`.
+
+#### Variables
+
+| Variable                    | Purpose                                                   | Default    |
+|-----------------------------|-----------------------------------------------------------|------------|
+| `AUDIT_OCSF_SINK`           | Sink module: `file` or `otlp`                             | `file`     |
+| `AUDIT_LOG_LEVEL`           | Open WebUI audit level (`METADATA`, `REQUEST`, …)         | `METADATA` |
+| `AUDIT_EXCLUDED_PATHS`      | Paths that Open WebUI does not audit                      | `/_app`    |
+| `AUDIT_ENABLE_GET_REQUESTS` | Audit GET requests also                                   | `true`     |
+
+The overlay always sets `ENABLE_AUDIT_LOGS_FILE=true` and the audit file path. `AUDIT_ENABLE` and
+`AUDIT_LOGS_FILE_PATH` have no effect when the overlay is active.
 
 ### OAuth / OIDC
 
