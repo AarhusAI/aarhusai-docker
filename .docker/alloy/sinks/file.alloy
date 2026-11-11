@@ -1,0 +1,27 @@
+declare "exporters" {
+  // Stringify the map body so each record's body.stringValue is one OCSF JSON document.
+  otelcol.processor.transform "stringify" {
+    log_statements {
+      context    = "log"
+      statements = [`set(body, String(body))`]
+    }
+
+    output {
+      logs = [otelcol.exporter.file.ocsf.input]
+    }
+  }
+
+  otelcol.exporter.file "ocsf" {
+    path   = "/var/lib/alloy/data/audit.ocsf.json"
+    format = "json"
+
+    rotation {
+      max_megabytes = 100
+      max_backups   = 10
+    }
+  }
+
+  export "input" {
+    value = [otelcol.processor.transform.stringify.input]
+  }
+}

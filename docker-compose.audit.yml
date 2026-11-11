@@ -1,0 +1,32 @@
+networks:
+  app:
+    driver: bridge
+    internal: false
+
+services:
+  # Named audit-alloy (not alloy): base compose defaults OTEL_EXPORTER_OTLP_ENDPOINT to alloy:4317
+  # and this sidecar exposes no OTLP receiver.
+  audit-alloy:
+    image: grafana/alloy:v1.21.3
+    restart: unless-stopped
+    networks:
+      - app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - openwebui
+    # grafana/alloy runs as uid 473; the bind-mounted .docker/data/alloy is root-owned and audit.log
+    # is written by the openwebui container. Run as root so bbolt checkpoint + audit.ocsf.json writes work.
+    user: "0"
+    # public-preview: otelcol.receiver.filelog + otelcol.storage.file are public-preview components.
+    command: ["run", "--stability.level=public-preview", "--storage.path=/var/lib/alloy/data", "--server.http.listen-addr=127.0.0.1:12345", "/etc/alloy/ocsf.alloy"]
+    environment:
+      AUDIT_OCSF_SINK: ${AUDIT_OCSF_SINK:-file}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_INSECURE: ${OTEL_EXPORTER_OTLP_INSECURE:-false}
+      OTEL_BASIC_AUTH_USERNAME: ${OTEL_BASIC_AUTH_USERNAME:-}
+      OTEL_BASIC_AUTH_PASSWORD: ${OTEL_BASIC_AUTH_PASSWORD:-}
+    volumes:
+      - .docker/alloy:/etc/alloy:ro
+      - .docker/data/storage:/var/log/openwebui:ro
+      - .docker/data/alloy:/var/lib/alloy/data
