@@ -299,7 +299,9 @@ docker compose -f docker-compose.server.yml -f docker-compose.audit.yml up --det
 
 #### Data flow
 
-1. Open WebUI writes one JSON object per line to `/app/backend/data/audit.log` (host: `.docker/data/storage/audit.log`).
+1. Open WebUI writes one JSON object per line to `/app/backend/data/audit/audit.log` at level `REQUEST_RESPONSE`.
+   The file lives in the RAM-only volume `audit-log` (tmpfs, 512 MB). It holds request and response bodies, so it
+   never touches the host disk. The volume is empty after a restart of the stack.
 2. `audit-alloy` reads the file and maps each line to OCSF (`.docker/alloy/ocsf.alloy`).
 3. A sink module in `.docker/alloy/sinks/` writes the events. `AUDIT_OCSF_SINK` selects the module.
 
@@ -310,18 +312,22 @@ runs as root, thus this directory is root-owned on the host.
 
 | Audit line                                      | OCSF class            | Activity                                  |
 |-------------------------------------------------|-----------------------|-------------------------------------------|
-| Route name `signin` or `signup`                 | Authentication (3002) | Logon                                     |
-| Route name `signout`                            | Authentication (3002) | Logoff                                    |
+| Path `/api/v1/auths/signin` or `.../signup`     | Authentication (3002) | Logon                                     |
+| Path `/api/v1/auths/signout`                    | Authentication (3002) | Logoff                                    |
 | All other lines                                 | API Activity (6003)   | Create / Read / Update / Delete / Other   |
 
-- The HTTP verb sets the API activity. A known prefix of the route name (`get_`, `create_`, `update_`, `delete_`, …)
+- The sidecar derives a path template from `request_uri`: each UUID becomes `{id}`.
+- `api.operation` is the HTTP verb and the path template, for example `POST /api/v1/chats/{id}/clone`.
+- The HTTP verb sets the API activity. A known segment of the path template (`get`, `create`, `update`, `delete`, …)
   overrides the verb.
-- `api.operation` is the route name. It is the HTTP verb when the line has no route name.
+- `resources` lists the item ids of the request: each UUID in the path with the segment before it as `type`, the
+  `?id=` query value, and the `id` key of the request and response bodies (type: the first collection segment of the
+  path). Bodies larger than `MAX_BODY_LOG_SIZE` (2048) are cut; an `id` that is not the first key of a cut body is lost.
 - A response code of 400 or more gives `status: "Failure"`.
 - `actor.user` contains `uid`, `name`, `email_addr` and `type_id` (2 for an admin, 1 for all other users). An
   anonymous request has only `type_id`.
-- Fields without an OCSF attribute go into `unmapped` (`route`, `request_object`, `response_object`, `extra`,
-  `user_role`).
+- Fields without an OCSF attribute go into `unmapped` (`route`, `extra`, `user_role`). The bodies do not leave the
+  sidecar.
 
 Open WebUI does not audit OAuth and LDAP logins. With Azure B2C login, the Authentication class thus contains only
 sign-out events.
@@ -350,12 +356,13 @@ The `otlp` sink has these conditions:
 | Variable                    | Purpose                                                   | Default    |
 |-----------------------------|-----------------------------------------------------------|------------|
 | `AUDIT_OCSF_SINK`           | Sink module: `file` or `otlp`                             | `file`     |
-| `AUDIT_LOG_LEVEL`           | Open WebUI audit level (`METADATA`, `REQUEST`, …)         | `METADATA` |
 | `AUDIT_EXCLUDED_PATHS`      | Paths that Open WebUI does not audit                      | `/_app`    |
 | `AUDIT_ENABLE_GET_REQUESTS` | Audit GET requests also                                   | `true`     |
 
-The overlay always sets `ENABLE_AUDIT_LOGS_FILE=true` and the audit file path. `AUDIT_ENABLE` and
-`AUDIT_LOGS_FILE_PATH` have no effect when the overlay is active.
+The overlay owns the audit configuration of the `openwebui` service: `ENABLE_AUDIT_LOGS_FILE=true`,
+`AUDIT_LOG_LEVEL=REQUEST_RESPONSE` and the audit file path. `REQUEST_RESPONSE` is required: only this level records the
+response status code and the item ids in the bodies. Keep `MAX_BODY_LOG_SIZE` at its default; a small value breaks the
+password redaction.
 
 ### OAuth / OIDC
 
