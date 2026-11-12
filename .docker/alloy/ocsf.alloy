@@ -1,10 +1,13 @@
 // Open WebUI audit.log (one JSON object per line) -> OCSF 1.5.0 events.
+// The stock line has no route. The pipeline derives the path template, the operation and the item ids from
+// request_uri and the request/response bodies. The bodies stay in the sidecar.
 // API Activity (6003) for everything, Authentication (3002) for signin/signup/signout.
 
 otelcol.storage.file "audit" {}
 
 otelcol.receiver.filelog "audit" {
-  include  = ["/var/log/openwebui/audit.log"]
+  // Glob: loguru renames the file to audit.<timestamp>.log at rotation, then zips and deletes it.
+  include  = ["/var/log/openwebui/audit*.log"]
   start_at = "beginning"
   storage  = otelcol.storage.file.audit.handler
   resource = { "service.name" = "open-webui-audit" }
@@ -29,22 +32,43 @@ otelcol.processor.transform "ocsf" {
     // Order matters; cache is per-record scratch. ParseJSON numbers are float64 -> Int() where OCSF needs integers.
     statements = [
       `merge_maps(cache, ParseJSON(body), "upsert")`,
-      `set(cache["op"], cache["action"])`,
-      `set(cache["op"], cache["verb"]) where cache["op"] == nil`,
+      // Stock line has no route: path and query from request_uri, path template with {id} for each UUID.
+      `merge_maps(cache, ExtractPatterns(cache["request_uri"], "^[a-z]+://[^/]+(?P<path>[^?]*)(?:[?](?P<query>.*))?$"), "upsert")`,
+      `set(cache["route"], cache["path"])`,
+      `replace_pattern(cache["route"], "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "{id}")`,
+      `set(cache["op"], Concat([cache["verb"], cache["route"]], " "))`,
+
+      // Item ids. Path: the segment before each UUID is the type (chats, users, files, ...). Query ?id= and body "id":
+      // the first collection segment after /api[/v1]/ is the type. The regex on the body covers a body cut at MAX_BODY_LOG_SIZE.
+      `merge_maps(cache, ExtractPatterns(cache["path"], "^/api/(?:v1/)?(?P<coll>[a-z_]+)"), "upsert")`,
+      `merge_maps(cache, ExtractPatterns(cache["path"], "/(?P<t1>[a-z_]+)/(?P<id1>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:/(?:[^/]+/)*(?P<t2>[a-z_]+)/(?P<id2>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}))?"), "upsert")`,
+      `merge_maps(cache, ExtractPatterns(cache["query"], "(?:^|&)id=(?P<qid>[^&]+)"), "upsert")`,
+      `merge_maps(cache, ExtractPatterns(cache["request_object"], "^[ ]*[{][ ]*\"id\"[ ]*:[ ]*\"(?P<bid>[^\"]+)\""), "upsert")`,
+      `merge_maps(cache, ExtractPatterns(cache["response_object"], "^[ ]*[{][ ]*\"id\"[ ]*:[ ]*\"(?P<rid>[^\"]+)\""), "upsert")`,
+      // append() rejects map values (Alloy 1.21): one extra id only (query, then request body, then response body).
+      `set(cache["xid"], cache["qid"])`,
+      `set(cache["xid"], cache["bid"]) where cache["xid"] == nil`,
+      `set(cache["xid"], cache["rid"]) where cache["xid"] == nil`,
+      `delete_key(cache, "xid") where cache["xid"] == cache["id1"] or cache["xid"] == cache["id2"]`,
+      `set(cache["resources"], [{"type": cache["coll"], "uid": cache["xid"]}]) where cache["xid"] != nil and cache["id1"] == nil`,
+      `set(cache["resources"], [{"type": cache["t1"], "uid": cache["id1"]}]) where cache["id1"] != nil and cache["id2"] == nil and cache["xid"] == nil`,
+      `set(cache["resources"], [{"type": cache["t1"], "uid": cache["id1"]}, {"type": cache["coll"], "uid": cache["xid"]}]) where cache["id1"] != nil and cache["id2"] == nil and cache["xid"] != nil`,
+      `set(cache["resources"], [{"type": cache["t1"], "uid": cache["id1"]}, {"type": cache["t2"], "uid": cache["id2"]}]) where cache["id2"] != nil and cache["xid"] == nil`,
+      `set(cache["resources"], [{"type": cache["t1"], "uid": cache["id1"]}, {"type": cache["t2"], "uid": cache["id2"]}, {"type": cache["coll"], "uid": cache["xid"]}]) where cache["id2"] != nil and cache["xid"] != nil`,
 
       // class: 6003 API Activity unless an auth route
       `set(cache["class_uid"], 6003)`,
-      `set(cache["class_uid"], 3002) where IsMatch(cache["op"], "^(signin|signup|signout)$")`,
+      `set(cache["class_uid"], 3002) where IsMatch(cache["path"], "^/api/v1/auths/(signin|signup|signout)$")`,
 
-      // API activity: verb first, action-name prefix overrides
+      // API activity: verb first, a path segment of the template overrides
       `set(cache["activity_id"], 99)`,
       `set(cache["activity_id"], 2) where cache["verb"] == "GET"`,
       `set(cache["activity_id"], 3) where cache["verb"] == "PUT" or cache["verb"] == "PATCH"`,
       `set(cache["activity_id"], 4) where cache["verb"] == "DELETE"`,
-      `set(cache["activity_id"], 1) where IsMatch(cache["op"], "^(create|add|new|upload|import|clone|generate)")`,
-      `set(cache["activity_id"], 2) where IsMatch(cache["op"], "^(get|list|search|download|export|read|verify|check|query)")`,
-      `set(cache["activity_id"], 3) where IsMatch(cache["op"], "^(update|set|edit|rename|toggle|move|pin|archive|share|unshare|reset|sync|assign|change|enable|disable|reorder)")`,
-      `set(cache["activity_id"], 4) where IsMatch(cache["op"], "^(delete|remove|unpin|unarchive|clear|revoke|purge)")`,
+      `set(cache["activity_id"], 1) where IsMatch(cache["route"], "/(create|add|new|upload|import|clone|generate)(/|$)")`,
+      `set(cache["activity_id"], 2) where IsMatch(cache["route"], "/(get|list|search|download|export|read|verify|check|query)(/|$)")`,
+      `set(cache["activity_id"], 3) where IsMatch(cache["route"], "/(update|set|edit|rename|toggle|move|pin|archive|share|unshare|reset|sync|assign|change|enable|disable|reorder)(/|$)")`,
+      `set(cache["activity_id"], 4) where IsMatch(cache["route"], "/(delete|remove|unpin|unarchive|clear|revoke|purge)(/|$)")`,
       `set(cache["activity_name"], "Other")`,
       `set(cache["activity_name"], "Create") where cache["activity_id"] == 1`,
       `set(cache["activity_name"], "Read") where cache["activity_id"] == 2`,
@@ -54,7 +78,7 @@ otelcol.processor.transform "ocsf" {
       // Authentication activity: 1 Logon, 2 Logoff
       `set(cache["activity_id"], 1) where cache["class_uid"] == 3002`,
       `set(cache["activity_name"], "Logon") where cache["class_uid"] == 3002`,
-      `set(cache["activity_id"], 2) where cache["op"] == "signout"`,
+      `set(cache["activity_id"], 2) where IsMatch(cache["path"], "^/api/v1/auths/signout$")`,
       `set(cache["activity_name"], "Logoff") where cache["activity_id"] == 2 and cache["class_uid"] == 3002`,
 
       `set(cache["status_id"], 1)`,
@@ -89,7 +113,7 @@ otelcol.processor.transform "ocsf" {
         "http_request": {"http_method": cache["verb"], "url": {"url_string": cache["request_uri"]}, "user_agent": cache["user_agent"]},
         "http_response": {"code": cache["code"]},
         "src_endpoint": {"ip": cache["source_ip"]},
-        "unmapped": {"route": cache["route"], "request_object": cache["request_object"], "response_object": cache["response_object"], "extra": cache["extra"]}
+        "unmapped": {"route": cache["route"], "extra": cache["extra"]}
       })`,
       // optional user fields: guarded, so anonymous ({}) users yield no null keys
       `set(body["actor"]["user"]["uid"], cache["user"]["id"]) where cache["user"]["id"] != nil`,
