@@ -1,0 +1,43 @@
+// File sink (same as file.alloy) plus OTLP gRPC to the central Alloy; body stays a map there.
+declare "exporters" {
+  otelcol.processor.transform "stringify" {
+    log_statements {
+      context    = "log"
+      statements = [`set(body, String(body))`]
+    }
+
+    output {
+      logs = [otelcol.exporter.file.ocsf.input]
+    }
+  }
+
+  otelcol.exporter.file "ocsf" {
+    path   = "/var/lib/alloy/data/audit.ocsf.json"
+    format = "json"
+
+    rotation {
+      max_megabytes = 100
+      max_backups   = 10
+    }
+  }
+
+  otelcol.auth.basic "central" {
+    username = sys.env("OTEL_BASIC_AUTH_USERNAME")
+    password = sys.env("OTEL_BASIC_AUTH_PASSWORD")
+  }
+
+  otelcol.exporter.otlp "central" {
+    client {
+      endpoint = sys.env("OTEL_EXPORTER_OTLP_ENDPOINT")
+      auth     = otelcol.auth.basic.central.handler
+
+      tls {
+        insecure = sys.env("OTEL_EXPORTER_OTLP_INSECURE") == "true"
+      }
+    }
+  }
+
+  export "input" {
+    value = [otelcol.processor.transform.stringify.input, otelcol.exporter.otlp.central.input]
+  }
+}

@@ -1,0 +1,39 @@
+// Local test sink: file sink (same as file.alloy) plus plaintext OTLP gRPC without auth.
+// gRPC refuses basic auth on a connection without TLS, so otlp.alloy cannot do this.
+// Do not use this sink in production.
+declare "exporters" {
+  otelcol.processor.transform "stringify" {
+    log_statements {
+      context    = "log"
+      statements = [`set(body, String(body))`]
+    }
+
+    output {
+      logs = [otelcol.exporter.file.ocsf.input]
+    }
+  }
+
+  otelcol.exporter.file "ocsf" {
+    path   = "/var/lib/alloy/data/audit.ocsf.json"
+    format = "json"
+
+    rotation {
+      max_megabytes = 100
+      max_backups   = 10
+    }
+  }
+
+  otelcol.exporter.otlp "central" {
+    client {
+      endpoint = sys.env("OTEL_EXPORTER_OTLP_ENDPOINT")
+
+      tls {
+        insecure = true
+      }
+    }
+  }
+
+  export "input" {
+    value = [otelcol.processor.transform.stringify.input, otelcol.exporter.otlp.central.input]
+  }
+}
