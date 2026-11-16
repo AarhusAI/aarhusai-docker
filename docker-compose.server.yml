@@ -339,6 +339,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - .docker/data/storage:/app/backend/data
+      - audit-log:/app/backend/data/audit
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
