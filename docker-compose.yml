@@ -50,6 +50,12 @@ services:
       OTEL_EXPORTER_OTLP_INSECURE: ${OTEL_EXPORTER_OTLP_INSECURE-false}
       OTEL_BASIC_AUTH_USERNAME: ${OTEL_BASIC_AUTH_USERNAME-""}
       OTEL_BASIC_AUTH_PASSWORD: ${OTEL_BASIC_AUTH_PASSWORD-""}
+      # Audit
+      ENABLE_AUDIT_LOGS_FILE: ${AUDIT_ENABLE:-false}
+      AUDIT_LOGS_FILE_PATH: /app/backend/data/audit/audit.log
+      AUDIT_LOG_LEVEL: REQUEST_RESPONSE
+      AUDIT_EXCLUDED_PATHS: ${AUDIT_EXCLUDED_PATHS:-/_app}
+      ENABLE_AUDIT_GET_REQUESTS: ${AUDIT_ENABLE_GET_REQUESTS:-true}
       # OIDC
       ENABLE_SIGNUP: ${ENABLE_SIGNUP:-false}
       ENABLE_LOGIN_FORM: ${ENABLE_LOGIN_FORM:-false}
@@ -342,6 +348,7 @@ services:
       - ./open-webui:/app
       - .docker/start.sh:/app/backend/start.sh
       - .docker/data/storage:/app/backend/data
+      - audit-log:/app/backend/data/audit
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -771,3 +778,10 @@ volumes:
   # operator's choice for a full reset.
   ingestion_model_cache:
   retrieval_model_cache:
+  # RAM only: the audit file holds request and response bodies. It never touches the host disk and is gone when
+  # the last container that mounts it stops.
+  audit-log:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=512m"
