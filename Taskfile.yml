@@ -68,6 +68,10 @@ vars:
     - name: 'Template for rag queries'
       url: 'https://patch-diff.githubusercontent.com/raw/os2ai/open-webui/pull/6.diff'
       branch: 'patch/rag-query-template'
+    # Data deletion
+    - name: 'Added data prune/deletion end-points'
+      url: 'https://patch-diff.githubusercontent.com/raw/os2ai/open-webui/pull/8.diff'
+      branch: 'patch/data-deletion'
 
   PATCHES_AARHUS:
     # OIDC
@@ -95,10 +99,6 @@ vars:
     - name: 'Added tidy feedback to pages behind login'
       url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/57.diff'
       branch: 'feature/feedback-tool'
-    # Data deletion
-    - name: 'Added data prune/deletion end-points'
-      url: 'https://patch-diff.githubusercontent.com/raw/AarhusAI/open-webui/pull/58.diff'
-      branch: 'feature/data-deletion'
 
 tasks:
   default:
