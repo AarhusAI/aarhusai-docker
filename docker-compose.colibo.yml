@@ -1,0 +1,63 @@
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
+
+services:  
+  colibo-mbu-gdpr:
+    image: ghcr.io/aarhusai/colibo-docs-extrator:${COLIBO_VERSION:-0.0.7}
+    profiles: ["sync"]
+    command: ["sync"]
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 256M
+    networks:
+      - app
+    environment:
+      DATABASE_URL: sqlite:///database/sync.db
+      COLIBO_BASE_URL: https://intranet.aarhuskommune.dk
+      COLIBO_ROOT_DOC_ID: 77318
+      COLIBO_SCOPE: "api Documents.ReadWrite.All"
+      COLIBO_CLIENT_ID: ${COLIBO_CLIENT_ID:?}
+      COLIBO_CLIENT_SECRET: ${COLIBO_CLIENT_SECRET:?}
+      WEBUI_BASE_URL: http://openwebui:8080
+      WEBUI_TOKEN: ${COLIBO_WEBUI_TOKEN?}
+      WEBUI_KNOWLEDGE_ID: ${COLIBO_WEBUI_KNOWLEDGE_ID?}
+    volumes:
+      - .docker/data/colibo/mbu:/app/database
+
+  colibo-sygefravaersportalen:
+    image: ghcr.io/aarhusai/colibo-docs-extrator:${COLIBO_VERSION:-0.0.7}
+    profiles: ["sync"]
+    command: ["sync"]
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 256M
+    networks:
+      - app
+    environment:
+      DATABASE_URL: sqlite:///database/sync.db
+      COLIBO_BASE_URL: https://intranet.aarhuskommune.dk
+      COLIBO_ROOT_DOC_ID: 77546
+      COLIBO_SCOPE: "api Documents.ReadWrite.All"
+      COLIBO_CLIENT_ID: ${COLIBO_SYGFRA_CLIENT_ID:?}
+      COLIBO_CLIENT_SECRET: ${COLIBO_SYGFRA_CLIENT_SECRET:?}
+      WEBUI_BASE_URL: http://openwebui:8080
+      WEBUI_TOKEN: ${COLIBO_SYGFRA_WEBUI_TOKEN?}
+      WEBUI_KNOWLEDGE_ID: ${COLIBO_SYGFRA_WEBUI_KNOWLEDGE_ID?}
+    volumes:
+      - .docker/data/colibo/sygefravaersportalen:/app/database
